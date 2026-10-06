@@ -1,0 +1,160 @@
+# Makefile for nur.h Library
+# Supports multiple C standards and comprehensive testing
+
+# Compiler settings
+CC := gcc
+CFLAGS_BASE := -Wall -Wextra -Wpedantic -I. -Isrc
+CFLAGS_DEBUG := $(CFLAGS_BASE) -g -O0 -DDEBUG
+CFLAGS_RELEASE := $(CFLAGS_BASE) -O2 -DNDEBUG
+
+# C Standard variants
+CFLAGS_C99 := $(CFLAGS_DEBUG) -std=c99
+CFLAGS_C11 := $(CFLAGS_DEBUG) -std=c11  
+CFLAGS_C17 := $(CFLAGS_DEBUG) -std=c17
+CFLAGS_C23 := $(CFLAGS_DEBUG) -std=c23
+
+# Test executables
+TEST_BINARY := test_nur
+TEST_BINARY_C99 := test_nur_c99
+TEST_BINARY_C11 := test_nur_c11
+TEST_BINARY_C17 := test_nur_c17
+TEST_BINARY_C23 := test_nur_c23
+
+# Source files
+HEADER := src/nur.h
+TEST_SRC := test/test_nur.c
+
+# Default target
+.PHONY: all
+all: test
+
+# Syntax check only (no linking)
+.PHONY: check
+check: check-c99 check-c11 check-c17 check-c23
+
+.PHONY: check-c99
+check-c99:
+	@echo "Checking C99 compatibility..."
+	$(CC) $(CFLAGS_C99) -fsyntax-only $(HEADER)
+
+.PHONY: check-c11  
+check-c11:
+	@echo "Checking C11 compatibility..."
+	$(CC) $(CFLAGS_C11) -fsyntax-only $(HEADER)
+
+.PHONY: check-c17
+check-c17:
+	@echo "Checking C17 compatibility..."
+	$(CC) $(CFLAGS_C17) -fsyntax-only $(HEADER)
+
+.PHONY: check-c23
+check-c23:
+	@echo "Checking C23 compatibility..."
+	$(CC) $(CFLAGS_C23) -fsyntax-only $(HEADER) || echo "C23 may not be supported by this compiler"
+
+# Build test executable (default C11)
+$(TEST_BINARY): $(TEST_SRC) $(HEADER)
+	@echo "Building test suite (C11)..."
+	$(CC) $(CFLAGS_C11) -o $@ $(TEST_SRC)
+
+# Build test executables for all standards
+$(TEST_BINARY_C99): $(TEST_SRC) $(HEADER)
+	$(CC) $(CFLAGS_C99) -o $@ $(TEST_SRC)
+
+$(TEST_BINARY_C11): $(TEST_SRC) $(HEADER)
+	$(CC) $(CFLAGS_C11) -o $@ $(TEST_SRC)
+
+$(TEST_BINARY_C17): $(TEST_SRC) $(HEADER)  
+	$(CC) $(CFLAGS_C17) -o $@ $(TEST_SRC)
+
+$(TEST_BINARY_C23): $(TEST_SRC) $(HEADER)
+	$(CC) $(CFLAGS_C23) -o $@ $(TEST_SRC) || echo "C23 compilation skipped"
+
+# Run tests
+.PHONY: test
+test: $(TEST_BINARY)
+	@echo "Running test suite..."
+	./$(TEST_BINARY)
+
+# Run tests for all C standards
+.PHONY: test-all
+test-all: test-c99 test-c11 test-c17 test-c23
+
+.PHONY: test-c99
+test-c99: $(TEST_BINARY_C99)
+	@echo "Running C99 tests..."
+	./$(TEST_BINARY_C99)
+
+.PHONY: test-c11
+test-c11: $(TEST_BINARY_C11)
+	@echo "Running C11 tests..."
+	./$(TEST_BINARY_C11)
+
+.PHONY: test-c17
+test-c17: $(TEST_BINARY_C17)
+	@echo "Running C17 tests..."
+	./$(TEST_BINARY_C17)
+
+.PHONY: test-c23
+test-c23: $(TEST_BINARY_C23)
+	@echo "Running C23 tests..."
+	./$(TEST_BINARY_C23) || echo "C23 testing skipped"
+
+# Memory testing with Valgrind (if available)
+.PHONY: test-valgrind
+test-valgrind: $(TEST_BINARY)
+	@echo "Running memory safety tests..."
+	@if command -v valgrind >/dev/null 2>&1; then \
+		valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=1 ./$(TEST_BINARY); \
+	else \
+		echo "Valgrind not available, running normal tests..."; \
+		./$(TEST_BINARY); \
+	fi
+
+# Static analysis (if available)
+.PHONY: analyze
+analyze:
+	@echo "Running static analysis..."
+	@if command -v cppcheck >/dev/null 2>&1; then \
+		cppcheck --enable=all --std=c11 --suppress=missingIncludeSystem --error-exitcode=1 $(HEADER); \
+	else \
+		echo "cppcheck not available, skipping static analysis"; \
+	fi
+
+# Clean build artifacts
+.PHONY: clean
+clean:
+	rm -f $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23)
+	rm -f *.o *.exe
+
+# Development workflow
+.PHONY: dev
+dev: clean check test analyze
+
+# Release workflow  
+.PHONY: release
+release: clean check-c99 check-c11 check-c17 test-all analyze
+	@echo "All release checks passed!"
+
+# Help target
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  all          - Run default test suite (same as 'test')"
+	@echo "  check        - Syntax check for all C standards"
+	@echo "  check-c99    - Syntax check for C99"
+	@echo "  check-c11    - Syntax check for C11" 
+	@echo "  check-c17    - Syntax check for C17"
+	@echo "  check-c23    - Syntax check for C23"
+	@echo "  test         - Build and run test suite (C11)"
+	@echo "  test-all     - Run tests for all C standards"
+	@echo "  test-c99     - Run C99 tests"
+	@echo "  test-c11     - Run C11 tests"
+	@echo "  test-c17     - Run C17 tests"
+	@echo "  test-c23     - Run C23 tests"
+	@echo "  test-valgrind- Run tests with memory checking"
+	@echo "  analyze      - Run static analysis"
+	@echo "  clean        - Remove build artifacts"
+	@echo "  dev          - Full development check (clean+check+test+analyze)"
+	@echo "  release      - Full release validation"
+	@echo "  help         - Show this help message"

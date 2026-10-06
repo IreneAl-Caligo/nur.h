@@ -1,0 +1,109 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+    # Only run benchmarks on main branch to keep baseline stable
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Need full history for proper benchmark comparison
+          fetch-depth: 0
+      
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 time
+      
+      - name: Check if benchmarks exist
+        id: check_benchmarks
+        run: |
+          if [ -f "benchmarks/bench_nur.c" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Build and run benchmarks
+        if: steps.check_benchmarks.outputs.exists == 'true'
+        run: |
+          echo "Building benchmarks with optimizations..."
+          gcc-13 -O2 -std=c11 -Wall -Wextra -I./src -o bench_nur benchmarks/bench_nur.c
+          
+          echo "Running benchmarks..."
+          ./bench_nur > benchmark_results.txt 2>&1
+          
+          echo "=== Benchmark Results ===" >> benchmark_results.txt
+          echo "Commit: $GITHUB_SHA" >> benchmark_results.txt
+          echo "Date: $(date -u)" >> benchmark_results.txt
+          echo "Compiler: $(gcc-13 --version | head -1)" >> benchmark_results.txt
+          echo "Optimization: -O2" >> benchmark_results.txt
+          
+          # Display results
+          cat benchmark_results.txt
+      
+      - name: Create benchmark placeholder (no benchmark file)
+        if: steps.check_benchmarks.outputs.exists == 'false'
+        run: |
+          echo "No benchmark file found at benchmarks/bench_nur.c" > benchmark_results.txt
+          echo "Commit: $GITHUB_SHA" >> benchmark_results.txt
+          echo "Date: $(date -u)" >> benchmark_results.txt
+          echo "" >> benchmark_results.txt
+          echo "To add benchmarks:" >> benchmark_results.txt
+          echo "1. Create benchmarks/bench_nur.c" >> benchmark_results.txt
+          echo "2. Include ../src/nur.h" >> benchmark_results.txt
+          echo "3. Implement timing tests for key operations" >> benchmark_results.txt
+          
+          cat benchmark_results.txt
+      
+      - name: Store benchmark results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark_results.txt
+          retention-days: 90
+      
+      - name: Install GitHub CLI
+        run: |
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
+      
+      - name: Comment benchmark results on commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create a comment body with benchmark results
+          echo "## 📊 Benchmark Results" > comment.md
+          echo "" >> comment.md
+          echo "**Commit:** \`$GITHUB_SHA\`" >> comment.md
+          echo "**Date:** $(date -u)" >> comment.md
+          echo "" >> comment.md
+          echo "### Results" >> comment.md
+          echo '```' >> comment.md
+          cat benchmark_results.txt >> comment.md
+          echo '```' >> comment.md
+          echo "" >> comment.md
+          
+          if [ "${{ steps.check_benchmarks.outputs.exists }}" = "false" ]; then
+            echo "_Note: No benchmark file found. Create \`benchmarks/bench_nur.c\` to enable performance tracking._" >> comment.md
+          fi
+          
+          # Try to create a commit comment
+          # Note: This will only work if this is a push event to a public repo
+          # or if the token has appropriate permissions
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+            --method POST \
+            --field body="$(cat comment.md)" || \
+            echo "Could not post commit comment (this is normal for forks or private repos)"

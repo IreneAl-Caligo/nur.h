@@ -1,0 +1,31 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run Tests After Implementation", 
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "command",
+        "command": "make test"
+      }
+    },
+    {
+      "name": "Memory Safety Check",
+      "trigger": "PostFileSave",
+      "matcher": "test_.*\\.c$",
+      "action": {
+        "type": "command", 
+        "command": "make test-valgrind"
+      }
+    },
+    {
+      "name": "Static Analysis on Save",
+      "trigger": "PostFileSave",
+      "matcher": "\\.(c|h)$",
+      "action": {
+        "type": "command",
+        "command": "cppcheck --enable=all --std=c11 --suppress=missingIncludeSystem src/nur.h"
+      }
+    }
+  ]
+}

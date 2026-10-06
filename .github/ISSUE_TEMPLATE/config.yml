@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contributing Guidelines
+    url: https://github.com/yourusername/nur.h/blob/main/CONTRIBUTING.md
+    about: Please read our contributing guidelines before opening an issue
+  - name: Security Vulnerability
+    url: https://github.com/yourusername/nur.h/blob/main/SECURITY.md
+    about: Please report security vulnerabilities privately via email
+  - name: Documentation
+    url: https://github.com/yourusername/nur.h/tree/main/docs
+    about: Check our documentation for API reference and tutorials
+  - name: Examples
+    url: https://github.com/yourusername/nur.h/tree/main/examples
+    about: Browse code examples to see how to use nur.h

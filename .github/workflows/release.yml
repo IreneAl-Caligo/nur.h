@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-13 clang-16 cppcheck valgrind
+      
+      - name: Run full release validation
+        run: |
+          echo "Running complete release validation..."
+          make release
+
+  package:
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
+      
+      - name: Create release package
+        run: |
+          mkdir -p release-package
+          
+          # Copy core files
+          cp src/nur.h release-package/
+          cp README.md release-package/
+          
+          # Copy LICENSE if it exists
+          if [ -f LICENSE ]; then
+            cp LICENSE release-package/
+          fi
+          
+          # Copy CHANGELOG.md if it exists
+          if [ -f CHANGELOG.md ]; then
+            cp CHANGELOG.md release-package/
+          fi
+          
+          # Copy docs directory if it exists
+          if [ -d docs ]; then
+            cp -r docs release-package/
+          fi
+          
+          # Copy examples if they exist
+          if [ -d examples ]; then
+            cp -r examples release-package/
+          fi
+          
+          # Create the archive
+          cd release-package
+          zip -r "../nur.h-${{ steps.version.outputs.version }}.zip" .
+          cd ..
+          
+          # List contents for verification
+          echo "Release package contents:"
+          unzip -l "nur.h-${{ steps.version.outputs.version }}.zip"
+      
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: nur.h-${{ steps.version.outputs.version }}.zip
+          retention-days: 90
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [validate, package]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Download release package
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package
+      
+      - name: Extract tag annotation for release notes
+        id: tag_data
+        run: |
+          # Get tag annotation (release notes)
+          TAG_MESSAGE=$(git tag -l --format='%(contents)' ${{ steps.version.outputs.version }})
+          
+          # If tag message is empty, create a default one
+          if [ -z "$TAG_MESSAGE" ]; then
+            TAG_MESSAGE="Release ${{ steps.version.outputs.version }}"
+          fi
+          
+          # Save to output
+          echo "tag_message<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: nur.h-${{ steps.version.outputs.version }}.zip
+          body: ${{ steps.tag_data.outputs.tag_message }}
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
