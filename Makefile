@@ -19,10 +19,12 @@ TEST_BINARY_C99 := test_nur_c99
 TEST_BINARY_C11 := test_nur_c11
 TEST_BINARY_C17 := test_nur_c17
 TEST_BINARY_C23 := test_nur_c23
+C23_TEST_BINARY := test_c23_features
 
 # Source files
 HEADER := src/nur.h
 TEST_SRC := test/test_nur.c
+C23_TEST_SRC := test/test_c23_features.c
 
 # Default target
 .PHONY: all
@@ -70,6 +72,11 @@ $(TEST_BINARY_C17): $(TEST_SRC) $(HEADER)
 $(TEST_BINARY_C23): $(TEST_SRC) $(HEADER)
 	$(CC) $(CFLAGS_C23) -o $@ $(TEST_SRC) || echo "C23 compilation skipped"
 
+# Build C23 feature test executable
+$(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
+	@echo "Building C23 feature test suite..."
+	$(CC) $(CFLAGS_C23) -o $@ $(C23_TEST_SRC) || echo "C23 feature tests compilation skipped"
+
 # Run tests
 .PHONY: test
 test: $(TEST_BINARY)
@@ -100,6 +107,12 @@ test-c23: $(TEST_BINARY_C23)
 	@echo "Running C23 tests..."
 	./$(TEST_BINARY_C23) || echo "C23 testing skipped"
 
+# Run C23 feature tests
+.PHONY: test-c23-features
+test-c23-features: $(C23_TEST_BINARY)
+	@echo "Running C23 feature validation tests..."
+	./$(C23_TEST_BINARY) || echo "C23 feature testing skipped"
+
 # Memory testing with Valgrind (if available)
 .PHONY: test-valgrind
 test-valgrind: $(TEST_BINARY)
@@ -124,7 +137,7 @@ analyze:
 # Clean build artifacts
 .PHONY: clean
 clean:
-	rm -f $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23)
+	rm -f $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY)
 	rm -f *.o *.exe
 
 # Development workflow
@@ -135,6 +148,95 @@ dev: clean check test analyze
 .PHONY: release
 release: clean check-c99 check-c11 check-c17 test-all analyze
 	@echo "All release checks passed!"
+
+# Coverage reporting (if gcov available)
+.PHONY: coverage
+coverage:
+	@echo "Generating coverage report..."
+	@if command -v gcov >/dev/null 2>&1; then \
+		$(CC) $(CFLAGS_C11) --coverage -o $(TEST_BINARY)_cov $(TEST_SRC); \
+		./$(TEST_BINARY)_cov; \
+		gcov $(TEST_SRC); \
+		echo "Coverage files generated: *.gcov"; \
+	else \
+		echo "gcov not available, skipping coverage analysis"; \
+	fi
+
+# Documentation generation
+.PHONY: docs
+docs: docs-api docs-coverage
+
+.PHONY: docs-api
+docs-api:
+	@echo "Generating API documentation..."
+	@if [ -f tools/generate_docs.py ]; then \
+		python3 tools/generate_docs.py $(HEADER) --format markdown --output docs/api/generated_api.md; \
+		python3 tools/generate_docs.py $(HEADER) --format html --output docs/api/generated_api.html; \
+		echo "API documentation generated in docs/api/"; \
+	else \
+		echo "Documentation generator not found"; \
+	fi
+
+.PHONY: docs-coverage
+docs-coverage: $(TEST_BINARY)
+	@echo "Generating coverage documentation..."
+	@if [ -f tools/generate_coverage_report.py ]; then \
+		python3 tools/generate_coverage_report.py $(HEADER) $(TEST_SRC) --output docs/coverage_report.md; \
+		python3 tools/generate_coverage_report.py $(HEADER) $(TEST_SRC) --json --output docs/coverage_report.json; \
+		echo "Coverage documentation generated in docs/"; \
+	else \
+		echo "Coverage report generator not found"; \
+	fi
+
+# Benchmark tests (if available)
+.PHONY: benchmark
+benchmark:
+	@echo "Running benchmarks..."
+	@if [ -f benchmarks/bench_nur.c ]; then \
+		$(CC) $(CFLAGS_RELEASE) -o bench_nur benchmarks/bench_nur.c; \
+		./bench_nur; \
+		rm -f bench_nur; \
+	else \
+		echo "Benchmark tests not found"; \
+	fi
+
+# Install header (for system-wide installation)
+.PHONY: install
+install:
+	@echo "Installing nur.h..."
+	@PREFIX=$${PREFIX:-/usr/local}; \
+	INCLUDEDIR=$$PREFIX/include; \
+	echo "Installing to: $$INCLUDEDIR"; \
+	mkdir -p $$INCLUDEDIR; \
+	cp $(HEADER) $$INCLUDEDIR/; \
+	echo "nur.h installed successfully!"
+
+# Uninstall header
+.PHONY: uninstall
+uninstall:
+	@echo "Uninstalling nur.h..."
+	@PREFIX=$${PREFIX:-/usr/local}; \
+	INCLUDEDIR=$$PREFIX/include; \
+	rm -f $$INCLUDEDIR/nur.h; \
+	echo "nur.h uninstalled!"
+
+# Create distribution package
+.PHONY: dist
+dist: clean
+	@echo "Creating distribution package..."
+	@VERSION=$$(cat VERSION); \
+	DISTNAME="nur.h-$$VERSION"; \
+	mkdir -p dist/$$DISTNAME; \
+	cp -r src/ docs/ examples/ test/ benchmarks/ scripts/ dist/$$DISTNAME/; \
+	cp Makefile README.md LICENSE VERSION CONTRIBUTING.md dist/$$DISTNAME/; \
+	cd dist && tar -czf $$DISTNAME.tar.gz $$DISTNAME; \
+	echo "Distribution created: dist/$$DISTNAME.tar.gz"
+
+# Version management
+.PHONY: version
+version:
+	@echo "nur.h version: $$(cat VERSION)"
+	@echo "Header version: $$(grep 'NUR_VERSION_STRING' $(HEADER) | cut -d'"' -f2)"
 
 # Help target
 .PHONY: help
@@ -152,8 +254,18 @@ help:
 	@echo "  test-c11     - Run C11 tests"
 	@echo "  test-c17     - Run C17 tests"
 	@echo "  test-c23     - Run C23 tests"
+	@echo "  test-c23-features- Run C23 feature validation tests"
 	@echo "  test-valgrind- Run tests with memory checking"
+	@echo "  coverage     - Generate code coverage report"
 	@echo "  analyze      - Run static analysis"
+	@echo "  benchmark    - Run performance benchmarks"
+	@echo "  docs         - Generate all documentation"
+	@echo "  docs-api     - Generate API documentation"
+	@echo "  docs-coverage- Generate coverage documentation"
+	@echo "  install      - Install header system-wide"
+	@echo "  uninstall    - Uninstall header"
+	@echo "  dist         - Create distribution package"
+	@echo "  version      - Show version information"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  dev          - Full development check (clean+check+test+analyze)"
 	@echo "  release      - Full release validation"

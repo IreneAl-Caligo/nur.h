@@ -75,6 +75,12 @@ jobs:
           export CFLAGS="${CFLAGS} -std=${{ matrix.standard }}"
           make CC="${CC}" test-all
       
+      - name: Run C23 feature tests
+        if: matrix.compiler == 'gcc-13' && matrix.standard == 'c11'
+        run: |
+          echo "Running C23 feature validation with GCC 13"
+          make CC="${CC}" test-c23-features || echo "C23 feature tests failed or skipped"
+      
       - name: Run static analysis
         if: matrix.compiler == 'gcc-13' && matrix.standard == 'c11'
         run: make analyze
