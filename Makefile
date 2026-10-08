@@ -13,13 +13,22 @@ CFLAGS_C11 := $(CFLAGS_DEBUG) -std=c11
 CFLAGS_C17 := $(CFLAGS_DEBUG) -std=c17
 CFLAGS_C23 := $(CFLAGS_DEBUG) -std=c23
 
+# Platform detection
+ifeq ($(OS),Windows_NT)
+    EXE := .exe
+    RUN_PREFIX := 
+else
+    EXE :=
+    RUN_PREFIX := ./
+endif
+
 # Test executables
-TEST_BINARY := test_nur
-TEST_BINARY_C99 := test_nur_c99
-TEST_BINARY_C11 := test_nur_c11
-TEST_BINARY_C17 := test_nur_c17
-TEST_BINARY_C23 := test_nur_c23
-C23_TEST_BINARY := test_c23_features
+TEST_BINARY := test_nur$(EXE)
+TEST_BINARY_C99 := test_nur_c99$(EXE)
+TEST_BINARY_C11 := test_nur_c11$(EXE)
+TEST_BINARY_C17 := test_nur_c17$(EXE)
+TEST_BINARY_C23 := test_nur_c23$(EXE)
+C23_TEST_BINARY := test_c23_features$(EXE)
 
 # Source files
 HEADER := src/nur.h
@@ -81,7 +90,7 @@ $(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
 .PHONY: test
 test: $(TEST_BINARY)
 	@echo "Running test suite..."
-	./$(TEST_BINARY)
+	$(RUN_PREFIX)$(TEST_BINARY)
 
 # Run tests for all C standards
 .PHONY: test-all
@@ -90,28 +99,28 @@ test-all: test-c99 test-c11 test-c17 test-c23
 .PHONY: test-c99
 test-c99: $(TEST_BINARY_C99)
 	@echo "Running C99 tests..."
-	./$(TEST_BINARY_C99)
+	$(RUN_PREFIX)$(TEST_BINARY_C99)
 
 .PHONY: test-c11
 test-c11: $(TEST_BINARY_C11)
 	@echo "Running C11 tests..."
-	./$(TEST_BINARY_C11)
+	$(RUN_PREFIX)$(TEST_BINARY_C11)
 
 .PHONY: test-c17
 test-c17: $(TEST_BINARY_C17)
 	@echo "Running C17 tests..."
-	./$(TEST_BINARY_C17)
+	$(RUN_PREFIX)$(TEST_BINARY_C17)
 
 .PHONY: test-c23
 test-c23: $(TEST_BINARY_C23)
 	@echo "Running C23 tests..."
-	./$(TEST_BINARY_C23) || echo "C23 testing skipped"
+	$(RUN_PREFIX)$(TEST_BINARY_C23) || echo "C23 testing skipped"
 
 # Run C23 feature tests
 .PHONY: test-c23-features
 test-c23-features: $(C23_TEST_BINARY)
 	@echo "Running C23 feature validation tests..."
-	./$(C23_TEST_BINARY) || echo "C23 feature testing skipped"
+	$(RUN_PREFIX)$(C23_TEST_BINARY) || echo "C23 feature testing skipped"
 
 # Memory testing with Valgrind (if available)
 .PHONY: test-valgrind
@@ -137,8 +146,12 @@ analyze:
 # Clean build artifacts
 .PHONY: clean
 clean:
+ifeq ($(OS),Windows_NT)
+	-cmd /C del /Q /F $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY) *.o *.exe 2>nul
+else
 	rm -f $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY)
 	rm -f *.o *.exe
+endif
 
 # Development workflow
 .PHONY: dev

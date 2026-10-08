@@ -9,10 +9,12 @@
 *.a
 *.lib
 
-# Test executables
-test_nur*
-*_test
-test_*
+# Test executables (root directory binaries)
+/test_nur*
+/*_test
+/test_*
+!test/*.c
+!test/*.h
 
 # Build directories
 build/
@@ -107,3 +109,8 @@ core.*
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Local tooling & worktrees
+.worktrees/
+.agents/
+.kiro/

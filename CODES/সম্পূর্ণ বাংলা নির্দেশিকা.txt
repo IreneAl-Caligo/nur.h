@@ -1,0 +1,698 @@
+# nur.h - ব্যবহারের সম্পূর্ণ নির্দেশিকা
+
+## 📚 সূচিপত্র
+1. [nur.h কী এবং কেন ব্যবহার করবেন](#nur-h-কী-এবং-কেন-ব্যবহার-করবেন)
+2. [বিভিন্ন IDE-তে সেটআপ নির্দেশনা](#বিভিন্ন-ide-তে-সেটআপ-নির্দেশনা)
+3. [মৌলিক ব্যবহার পদ্ধতি](#মৌলিক-ব্যবহার-পদ্ধতি)
+4. [উন্নত ব্যবহার উদাহরণ](#উন্নত-ব্যবহার-উদাহরণ)
+5. [কম্পাইলেশন নির্দেশনা](#কম্পাইলেশন-নির্দেশনা)
+
+---
+
+## nur.h কী এবং কেন ব্যবহার করবেন
+
+`nur.h` হলো একটি **সিঙ্গেল-ফাইল, হেডার-অনলি** C লাইব্রেরি যা Rust-স্টাইলের নিরাপদ error handling আপনার C প্রোগ্রামে যোগ করে।
+
+### ✨ প্রধান বৈশিষ্ট্য:
+- ✅ **শূন্য মেমরি অ্যালোকেশন** - কোর লাইব্রেরিতে `malloc` নেই
+- ✅ **টাইপ-সেফ** - Result<T> টাইপ দিয়ে কম্পাইলার error চেক করে
+- ✅ **মাল্টি-স্ট্যান্ডার্ড** - C99, C11, C17, C23 সবতে কাজ করে
+- ✅ **ক্রস-প্ল্যাটফর্ম** - GCC, Clang, MSVC সবতে চলে
+- ✅ **[[nodiscard]]** অ্যাট্রিবিউট - error ignore করলে কম্পাইলার warning দেয়
+- ✅ **সোর্স লোকেশন ট্র্যাকিং** - error কোথায় হয়েছে তা জানায়
+
+---
+
+## বিভিন্ন IDE-তে সেটআপ নির্দেশনা
+
+### 🔷 1. Code::Blocks IDE-তে ব্যবহার
+
+#### ধাপ ১: nur.h ফাইল ডাউনলোড এবং স্থাপন
+```
+আপনার প্রজেক্ট ফোল্ডারে একটি "include" ফোল্ডার তৈরি করুন
+nur.h ফাইলটি সেই include ফোল্ডারে রাখুন
+
+উদাহরণ:
+C:\MyProjects\MyApp\include\nur.h
+```
+
+#### ধাপ ২: Code::Blocks প্রজেক্ট সেটআপ
+1. **Code::Blocks** খুলুন
+2. আপনার প্রজেক্ট খুলুন বা নতুন তৈরি করুন (File → New → Project)
+3. **Project → Build Options** যান
+4. **Search directories** ট্যাবে ক্লিক করুন
+5. **Compiler** সাব-ট্যাবে যান
+6. **Add** বাটনে ক্লিক করে `include` ফোল্ডারের পাথ যোগ করুন
+7. **OK** চাপুন
+
+#### ধাপ ৩: আপনার C ফাইলে ব্যবহার
+```c
+#include <nur.h>
+#include <stdio.h>
+
+// একটি ফাংশন যা Result<int> রিটার্ন করে
+NurResult_i32 divide(int a, int b) {
+    if (b == 0) {
+        return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "ভাগ শূন্য দিয়ে করা যায় না"));
+    }
+    return NUR_OK(i32, a / b);
+}
+
+int main(void) {
+    NurResult_i32 result = divide(10, 2);
+    
+    if (NUR_IS_OK(result)) {
+        printf("ফলাফল: %d\n", NUR_VALUE(result));
+    } else {
+        nur_error_t err = NUR_ERROR_OF(result);
+        printf("এরর: %s\n", err.message);
+    }
+    
+    return 0;
+}
+```
+
+#### ধাপ ৪: কম্পাইল এবং রান
+1. **Build → Build** (Ctrl+F9) চাপুন
+2. **Build → Run** (Ctrl+F10) চাপুন
+
+#### ⚙️ কম্পাইলার সেটিংস (Code::Blocks)
+**Settings → Compiler → Compiler settings → Other compiler options** এ যোগ করুন:
+```
+-std=c11
+-Wall
+-Wextra
+```
+
+---
+
+### 🔷 2. Visual Studio Code (VS Code) তে ব্যবহার
+
+#### ধাপ ১: VS Code সেটআপ
+1. **VS Code** ইনস্টল করুন: https://code.visualstudio.com/
+2. **C/C++ Extension** ইনস্টল করুন (Microsoft থেকে)
+3. **MinGW** অথবা **GCC** ইনস্টল করুন
+
+#### ধাপ ২: প্রজেক্ট স্ট্রাকচার
+```
+MyProject/
+├── include/
+│   └── nur.h
+├── src/
+│   └── main.c
+└── .vscode/
+    ├── c_cpp_properties.json
+    └── tasks.json
+```
+
+#### ধাপ ৩: c_cpp_properties.json তৈরি
+`.vscode/c_cpp_properties.json` ফাইল তৈরি করুন:
+```json
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "C:/MinGW/bin/gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
+```
+
+#### ধাপ ৪: tasks.json তৈরি (বিল্ড টাস্ক)
+`.vscode/tasks.json` ফাইল তৈরি করুন:
+```json
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build with nur.h",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-I${workspaceFolder}/include",
+                "${workspaceFolder}/src/main.c",
+                "-o",
+                "${workspaceFolder}/main.exe"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
+```
+
+#### ধাপ ৫: কম্পাইল এবং রান
+1. `Ctrl+Shift+B` চাপুন (বিল্ড করতে)
+2. টার্মিনালে `./main.exe` টাইপ করে রান করুন
+
+---
+
+### 🔷 3. Kiro IDE তে ব্যবহার
+
+#### ধাপ ১: Kiro তে প্রজেক্ট খুলুন
+```
+File → Open Folder
+আপনার প্রজেক্ট ফোল্ডার সিলেক্ট করুন
+```
+
+#### ধাপ ২: nur.h রাখুন
+```
+MyProject/
+├── include/
+│   └── nur.h
+└── src/
+    └── main.c
+```
+
+#### ধাপ ৩: কম্পাইল করুন
+Kiro-র টার্মিনালে (`` Ctrl+` `` চাপুন):
+```bash
+gcc -std=c11 -Wall -Iinclude src/main.c -o main.exe
+```
+
+#### ধাপ ৪: রান করুন
+```bash
+./main.exe
+```
+
+---
+
+### 🔷 4. CLion IDE তে ব্যবহার
+
+#### ধাপ ১: CMakeLists.txt তৈরি
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(MyProject C)
+
+set(CMAKE_C_STANDARD 11)
+
+# nur.h এর পাথ যোগ করুন
+include_directories(include)
+
+add_executable(MyProject src/main.c)
+```
+
+#### ধাপ ২: প্রজেক্ট স্ট্রাকচার
+```
+MyProject/
+├── include/
+│   └── nur.h
+├── src/
+│   └── main.c
+└── CMakeLists.txt
+```
+
+#### ধাপ ৩: বিল্ড এবং রান
+1. **Build → Build Project** (Ctrl+F9)
+2. **Run → Run** (Shift+F10)
+
+---
+
+### 🔷 5. Dev-C++ তে ব্যবহার
+
+#### ধাপ ১: প্রজেক্ট তৈরি
+1. **File → New → Project**
+2. **Console Application** সিলেক্ট করুন
+3. **C Project** চয়ন করুন
+
+#### ধাপ ২: nur.h যোগ করুন
+```
+আপনার প্রজেক্ট ফোল্ডারে nur.h কপি করুন
+অথবা:
+Tools → Compiler Options → Directories → Include Directories
+nur.h এর পাথ যোগ করুন
+```
+
+#### ধাপ ৩: কোড লিখুন এবং রান করুন
+```c
+#include "nur.h"  // যদি একই ফোল্ডারে থাকে
+// অথবা
+#include <nur.h>  // যদি include path এ থাকে
+```
+
+---
+
+## মৌলিক ব্যবহার পদ্ধতি
+
+### 🎯 উদাহরণ ১: সাধারণ Error Handling
+```c
+#include <nur.h>
+#include <stdio.h>
+
+// একটি ফাংশন যা Result<int> রিটার্ন করে
+NurResult_i32 parse_age(const char *str) {
+    if (str == NULL) {
+        return NUR_ERR(i32, NUR_ERROR(NUR_E_NULL_POINTER, "স্ট্রিং NULL হতে পারে না"));
+    }
+    
+    int age = atoi(str);
+    
+    if (age < 0 || age > 150) {
+        return NUR_ERR(i32, NUR_ERROR(NUR_E_OUT_OF_RANGE, "বয়স ০-১৫০ এর মধ্যে হতে হবে"));
+    }
+    
+    return NUR_OK(i32, age);
+}
+
+int main(void) {
+    NurResult_i32 result = parse_age("25");
+    
+    if (NUR_IS_OK(result)) {
+        printf("বয়স: %d বছর\n", NUR_VALUE(result));
+    } else {
+        nur_error_t err = NUR_ERROR_OF(result);
+        fprintf(stderr, "এরর: %s\n", err.message);
+    }
+    
+    return 0;
+}
+```
+
+### 🎯 উদাহরণ ২: File I/O Error Handling
+```c
+#include <nur.h>
+#include <stdio.h>
+
+NurResult_ptr read_file(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        return NUR_ERR(ptr, NUR_ERROR_ERRNO("ফাইল খুলতে ব্যর্থ"));
+    }
+    
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+    
+    NurResult_ptr mem_result = nur_malloc(size + 1);
+    if (NUR_IS_ERR(mem_result)) {
+        fclose(file);
+        return mem_result;
+    }
+    
+    char *buffer = (char *)NUR_VALUE(mem_result);
+    fread(buffer, 1, size, file);
+    buffer[size] = '\0';
+    
+    fclose(file);
+    return NUR_OK(ptr, buffer);
+}
+
+int main(void) {
+    NurResult_ptr result = read_file("data.txt");
+    
+    if (NUR_IS_OK(result)) {
+        char *content = (char *)NUR_VALUE(result);
+        printf("ফাইলের বিষয়বস্তু:\n%s\n", content);
+        free(content);
+    } else {
+        nur_error_eprint(&NUR_ERROR_OF(result));
+    }
+    
+    return 0;
+}
+```
+
+### 🎯 উদাহরণ ৩: Error Propagation (NUR_TRY_TO)
+```c
+#include <nur.h>
+#include <stdio.h>
+#include <string.h>
+
+NurResult_i32 parse_number(const char *str) {
+    if (str == NULL) {
+        return NUR_ERR(i32, NUR_ERROR(NUR_E_NULL_POINTER, "স্ট্রিং NULL"));
+    }
+    return NUR_OK(i32, atoi(str));
+}
+
+NurResult_i32 calculate_total(const char *a_str, const char *b_str) {
+    int a, b;
+    
+    // parse_number এর error স্বয়ংক্রিয়ভাবে propagate হবে
+    NUR_TRY_TO(i32, i32, a, parse_number(a_str));
+    NUR_TRY_TO(i32, i32, b, parse_number(b_str));
+    
+    return NUR_OK(i32, a + b);
+}
+
+int main(void) {
+    NurResult_i32 result = calculate_total("10", "20");
+    
+    if (NUR_IS_OK(result)) {
+        printf("মোট: %d\n", NUR_VALUE(result));
+    } else {
+        nur_error_eprint(&NUR_ERROR_OF(result));
+    }
+    
+    return 0;
+}
+```
+
+### 🎯 উদাহরণ ৪: Custom Type Result
+```c
+#include <nur.h>
+#include <stdio.h>
+
+// নিজস্ব struct তৈরি
+typedef struct {
+    char name[50];
+    int age;
+} Person;
+
+// Person এর জন্য Result type তৈরি
+NUR_RESULT_TYPE(Person, person)
+
+NurResult_person create_person(const char *name, int age) {
+    if (name == NULL) {
+        return NUR_ERR(person, NUR_ERROR(NUR_E_NULL_POINTER, "নাম NULL হতে পারে না"));
+    }
+    
+    if (age < 0 || age > 150) {
+        return NUR_ERR(person, NUR_ERROR(NUR_E_OUT_OF_RANGE, "বয়স অবৈধ"));
+    }
+    
+    Person p;
+    strncpy(p.name, name, sizeof(p.name) - 1);
+    p.name[sizeof(p.name) - 1] = '\0';
+    p.age = age;
+    
+    return NUR_OK(person, p);
+}
+
+int main(void) {
+    NurResult_person result = create_person("রহিম", 30);
+    
+    if (NUR_IS_OK(result)) {
+        Person p = NUR_VALUE(result);
+        printf("নাম: %s, বয়স: %d\n", p.name, p.age);
+    } else {
+        nur_error_eprint(&NUR_ERROR_OF(result));
+    }
+    
+    return 0;
+}
+```
+
+---
+
+## উন্নত ব্যবহার উদাহরণ
+
+### 🚀 উদাহরণ ৫: Option Type ব্যবহার
+```c
+#include <nur.h>
+#include <stdio.h>
+#include <string.h>
+
+// একটি লিস্টে নাম খোঁজা
+NurOption_cstr find_name(const char *names[], size_t count, const char *target) {
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(names[i], target) == 0) {
+            return NUR_SOME(cstr, (char *)names[i]);
+        }
+    }
+    return NUR_NONE(cstr);
+}
+
+int main(void) {
+    const char *names[] = {"রহিম", "করিম", "সালমা"};
+    
+    NurOption_cstr result = find_name(names, 3, "করিম");
+    
+    if (NUR_IS_SOME(result)) {
+        printf("পাওয়া গেছে: %s\n", NUR_OPTION_VALUE(result));
+    } else {
+        printf("পাওয়া যায়নি\n");
+    }
+    
+    return 0;
+}
+```
+
+### 🚀 উদাহরণ ৬: Multiple Error Handling
+```c
+#include <nur.h>
+#include <stdio.h>
+
+NurResult_void validate_and_process(int value) {
+    // শর্ত চেক করা
+    NUR_CHECK(value > 0, 
+              NUR_ERROR(NUR_E_INVALID_ARGUMENT, "মান ধনাত্মক হতে হবে"));
+    
+    NUR_CHECK(value < 1000, 
+              NUR_ERROR(NUR_E_OUT_OF_RANGE, "মান ১০০০ এর কম হতে হবে"));
+    
+    printf("মান প্রসেস করা হলো: %d\n", value);
+    return NUR_OK_VOID();
+}
+
+int main(void) {
+    NurResult_void result = validate_and_process(500);
+    
+    if (NUR_IS_OK(result)) {
+        printf("সফল!\n");
+    } else {
+        nur_error_eprint(&result.error);
+    }
+    
+    return 0;
+}
+```
+
+### 🚀 উদাহরণ ৭: Database-Style Error Context
+```c
+#include <nur.h>
+#include <stdio.h>
+
+typedef struct {
+    int id;
+    char name[50];
+} User;
+
+NUR_RESULT_TYPE(User, user)
+
+NurResult_user fetch_user(int id) {
+    if (id <= 0) {
+        return NUR_ERR(user, 
+                      NUR_ERROR_CTX(NUR_E_INVALID_ARGUMENT, 
+                                   "ব্যবহারকারী ID অবৈধ",
+                                   "fetch_user"));
+    }
+    
+    // ধরে নিলাম DB তে পাওয়া যায়নি
+    if (id > 100) {
+        return NUR_ERR(user,
+                      NUR_ERROR_CTX(NUR_E_NOT_FOUND,
+                                   "ব্যবহারকারী পাওয়া যায়নি",
+                                   "database query"));
+    }
+    
+    User u;
+    u.id = id;
+    snprintf(u.name, sizeof(u.name), "ব্যবহারকারী_%d", id);
+    
+    return NUR_OK(user, u);
+}
+
+int main(void) {
+    NurResult_user result = fetch_user(200);
+    
+    if (NUR_IS_OK(result)) {
+        User u = NUR_VALUE(result);
+        printf("ID: %d, নাম: %s\n", u.id, u.name);
+    } else {
+        nur_error_t err = NUR_ERROR_OF(result);
+        printf("এরর [%s]: %s\n", nur_error_code_name(err.code), err.message);
+        if (err.context) {
+            printf("প্রসঙ্গ: %s\n", err.context);
+        }
+        printf("অবস্থান: %s:%d in %s()\n", err.file, err.line, err.func);
+    }
+    
+    return 0;
+}
+```
+
+---
+
+## কম্পাইলেশন নির্দেশনা
+
+### 📦 সাধারণ কম্পাইলেশন
+
+#### GCC দিয়ে:
+```bash
+# সাধারণ
+gcc -std=c11 -Wall -Wextra -Iinclude src/main.c -o main.exe
+
+# অপটিমাইজেশন সহ
+gcc -std=c11 -Wall -Wextra -O2 -Iinclude src/main.c -o main.exe
+
+# ডিবাগিং সহ
+gcc -std=c11 -Wall -Wextra -g -Iinclude src/main.c -o main.exe
+```
+
+#### Clang দিয়ে:
+```bash
+clang -std=c11 -Wall -Wextra -Iinclude src/main.c -o main.exe
+```
+
+#### MSVC (Visual Studio) দিয়ে:
+```cmd
+cl /std:c11 /W4 /I include src\main.c
+```
+
+### 📦 Makefile উদাহরণ
+
+```makefile
+CC = gcc
+CFLAGS = -std=c11 -Wall -Wextra -Iinclude
+TARGET = main
+
+all: $(TARGET)
+
+$(TARGET): src/main.c
+	$(CC) $(CFLAGS) src/main.c -o $(TARGET)
+
+clean:
+	rm -f $(TARGET) $(TARGET).exe
+
+run: $(TARGET)
+	./$(TARGET)
+```
+
+ব্যবহার:
+```bash
+make          # বিল্ড করতে
+make run      # বিল্ড এবং রান করতে
+make clean    # ক্লিন করতে
+```
+
+### 📦 CMake উদাহরণ
+
+```cmake
+cmake_minimum_required(VERSION 3.10)
+project(MyProject C)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# Warning flags
+add_compile_options(-Wall -Wextra)
+
+# Include directories
+include_directories(include)
+
+# Executable
+add_executable(main src/main.c)
+```
+
+ব্যবহার:
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build .
+./main
+```
+
+---
+
+## 🎓 সেরা অনুশীলন (Best Practices)
+
+### ✅ করণীয়:
+1. **সবসময় Result চেক করুন** - `NUR_IS_OK()` বা `NUR_IS_ERR()` ব্যবহার করুন
+2. **Error message স্পষ্ট রাখুন** - কী ভুল হয়েছে তা বোঝা যায় এমন
+3. **Context যোগ করুন** - `NUR_ERROR_CTX()` ব্যবহার করুন গুরুত্বপূর্ণ ক্ষেত্রে
+4. **Custom types তৈরি করুন** - `NUR_RESULT_TYPE()` দিয়ে নিজস্ব টাইপ বানান
+5. **Error propagate করুন** - `NUR_TRY_TO()` ব্যবহার করুন
+
+### ❌ করণীয় নয়:
+1. **Result ignore করবেন না** - [[nodiscard]] warning পেলে ঠিক করুন
+2. **Error checked না করে value access করবেন না** - segfault হতে পারে
+3. **NULL pointer pass করবেন না** - যেখানে প্রত্যাশিত নয়
+4. **errno দেরিতে capture করবেন না** - অন্য function call এর আগেই করুন
+5. **Memory leak করবেন না** - `nur_malloc()` এর pointer free করতে ভুলবেন না
+
+---
+
+## 🔧 ট্রাবলশুটিং
+
+### সমস্যা ১: "nur.h: No such file or directory"
+**সমাধান:**
+- Include path সঠিক আছে কিনা চেক করুন
+- `#include <nur.h>` বা `#include "nur.h"` সঠিকভাবে লিখেছেন কিনা দেখুন
+
+### সমস্যা ২: "unused result" warning
+**সমাধান:**
+- Result চেক করুন `NUR_IS_OK()` দিয়ে
+- অথবা `NUR_IGNORE()` ব্যবহার করুন যদি intentionally ignore করতে চান
+
+### সমস্যা ৩: Compilation error "statement expression"
+**সমাধান:**
+- `NUR_TRY()` শুধু GNU compilers (GCC/Clang) এ কাজ করে
+- MSVC-তে `NUR_TRY_TO()` ব্যবহার করুন
+
+### সমস্যা ৪: C++ project এ ব্যবহার করতে চান
+**সমাধান:**
+```cpp
+extern "C" {
+    #include <nur.h>
+}
+```
+
+---
+
+## 📞 সাহায্য এবং সহায়তা
+
+যদি আরও সাহায্যের প্রয়োজন হয়:
+1. GitHub Issues: প্রজেক্ট রিপোজিটরিতে issue তৈরি করুন
+2. Documentation: `docs/` ফোল্ডারে আরও উদাহরণ দেখুন
+3. Examples: `examples/` ফোল্ডারে কার্যকরী কোড দেখুন
+
+---
+
+## 🌟 সংস্করণ তথ্য
+
+**nur.h v1.0.0**
+- প্রথম স্থিতিশীল সংস্করণ
+- সব প্রধান C স্ট্যান্ডার্ড সাপোর্ট
+- প্রোডাকশন-রেডি
+
+**লাইসেন্স:** MIT
+**কপিরাইট:** 2024
+
+---
+
+## ✨ দ্রুত রেফারেন্স
+
+| কাজ | ম্যাক্রো/ফাংশন |
+|-----|-----------------|
+| Success তৈরি | `NUR_OK(suffix, value)` |
+| Error তৈরি | `NUR_ERR(suffix, error)` |
+| Error তৈরি (নতুন) | `NUR_ERROR(code, msg)` |
+| Success চেক | `NUR_IS_OK(result)` |
+| Error চেক | `NUR_IS_ERR(result)` |
+| Value নেওয়া | `NUR_VALUE(result)` |
+| Error নেওয়া | `NUR_ERROR_OF(result)` |
+| Error propagate | `NUR_TRY_TO(Dest, Src, lhs, expr)` |
+| Condition চেক | `NUR_CHECK(cond, error)` |
+| Memory allocate | `nur_malloc(size)` |
+| Error print | `nur_error_eprint(&error)` |
+
+---
+
+**শুভকামনা! nur.h দিয়ে নিরাপদ এবং শক্তিশালী C প্রোগ্রাম তৈরি করুন! 🚀**

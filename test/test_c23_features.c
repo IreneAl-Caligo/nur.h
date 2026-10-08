@@ -116,7 +116,8 @@ static NurResult_i32 critical_operation_c23(int value) {
 }
 #endif
 
-/* Fallback function for non-C23 compilers */
+/* Fallback function for non-C23 compilers — only compiled when C23 is absent */
+#ifndef NUR_C23
 NUR_NODISCARD_MSG("You must check the result of this critical operation")
 static NurResult_i32 critical_operation_fallback(int value) {
     if (value < 0) {
@@ -124,6 +125,7 @@ static NurResult_i32 critical_operation_fallback(int value) {
     }
     return NUR_OK(i32, value * 2);
 }
+#endif /* !NUR_C23 */
 
 static int test_nodiscard_with_message(void) {
 #ifdef NUR_C23
@@ -223,9 +225,13 @@ static NurResult_i32 multiply_safe(int a, int b) {
     return NUR_OK(i32, a * b);
 }
 
+/*
+ * NUR_TRY propagates into the return type of the enclosing function.
+ * Since this returns NurResult_i32, we use NUR_TRY_AS(i32, ...) which
+ * propagates errors as NurResult_i32 rather than the void variant.
+ */
 static NurResult_i32 test_typeof_helper(int x) {
-    /* This should use __auto_type in NUR_TRY macro for GCC/Clang */
-    int result_val = NUR_TRY(multiply_safe(x, 3));
+    int result_val = NUR_TRY_AS(i32, multiply_safe(x, 3));
     return NUR_OK(i32, result_val + 1);
 }
 #endif
@@ -238,8 +244,8 @@ static int test_typeof_auto_type_deduction(void) {
         return 0;
     }
     
-    /* Test error propagation */
-    NurResult_i32 err_result = test_typeof_helper(1000000); /* Should overflow */
+    /* Test error propagation: 800000000 * 3 = 2400000000 > INT_MAX (2147483647) */
+    NurResult_i32 err_result = test_typeof_helper(800000000); /* Should overflow */
     if (NUR_IS_OK(err_result)) {
         return 0;
     }
@@ -265,9 +271,9 @@ static int test_typeof_auto_type_deduction(void) {
 static int test_binary_literals_and_separators(void) {
 #ifdef NUR_C23
     /* C23 binary literals and digit separators */
-    int binary_val = 0b1010'1010;           /* Binary literal with separator */
-    int decimal_val = 1'000'000;            /* Decimal with thousands separator */
-    int hex_val = 0xFF'FF'FF'FF;           /* Hex with separators */
+    int          binary_val  = 0b1010'1010;      /* Binary literal with separator */
+    int          decimal_val = 1'000'000;         /* Decimal with thousands separator */
+    unsigned int hex_val     = 0xFF'FF'FF'FFu;   /* Hex with separators (unsigned) */
     long long big_val = 123'456'789'012LL; /* Large number with separators */
     
     /* Test that values are correctly parsed */
@@ -277,7 +283,7 @@ static int test_binary_literals_and_separators(void) {
     if (decimal_val != 1000000) {
         return 0;
     }
-    if (hex_val != 0xFFFFFFFF) {
+    if (hex_val != 0xFFFFFFFFu) {
         return 0;
     }
     if (big_val != 123456789012LL) {
@@ -299,17 +305,17 @@ static int test_binary_literals_and_separators(void) {
     return 1;
 #else
     /* Fallback for non-C23: use traditional literals */
-    int binary_val = 170;      /* 0b10101010 equivalent */
+    int binary_val  = 170;     /* 0b10101010 equivalent */
     int decimal_val = 1000000; /* Same value without separators */
-    int hex_val = 0xFFFFFFFF;  /* Same hex value */
-    
-    NurResult_i32 binary_result = NUR_OK(i32, binary_val);
+    /* hex_val omitted — not used in this path, avoids sign/width portability issues */
+
+    NurResult_i32 binary_result  = NUR_OK(i32, binary_val);
     NurResult_i32 decimal_result = NUR_OK(i32, decimal_val);
-    
+
     if (!NUR_IS_OK(binary_result) || !NUR_IS_OK(decimal_result)) {
         return 0;
     }
-    
+
     return -1; /* Skip - C23 literals not available */
 #endif
 }

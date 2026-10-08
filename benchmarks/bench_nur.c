@@ -150,6 +150,7 @@ static NurResult_void run_benchmark(const char *name, size_t iterations,
     if (!name || !bench_func || !out_result) {
         return nur_err_void(NUR_ERROR(NUR_E_NULL_POINTER, "NULL parameter to run_benchmark"));
     }
+    (void)is_baseline;
     
     if (iterations == 0) {
         return nur_err_void(NUR_ERROR(NUR_E_INVALID_ARGUMENT, "iterations cannot be zero"));
