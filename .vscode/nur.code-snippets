@@ -1,0 +1,44 @@
+{
+  "Nur Try Auto": {
+    "prefix": "try",
+    "body": [
+      "NUR_TRY_AUTO(${1:DestSuffix}, ${2:lhs}, ${3:expr});"
+    ],
+    "description": "Auto-typing try macro for C23/GNU (nur.h)"
+  },
+  "Nur Try To": {
+    "prefix": "tryto",
+    "body": [
+      "NUR_TRY_TO(${1:DestSuffix}, ${2:SrcSuffix}, ${3:lhs}, ${4:expr});"
+    ],
+    "description": "Standard try macro for C99/C11 (nur.h)"
+  },
+  "Nur Unwrap": {
+    "prefix": "unwrap",
+    "body": [
+      "NUR_UNWRAP(${1:result})"
+    ],
+    "description": "Unwrap a NurResult_T (nur.h)"
+  },
+  "Nur Return OK": {
+    "prefix": "ok",
+    "body": [
+      "return NUR_OK(${1:suffix}, ${2:value});"
+    ],
+    "description": "Return success result (nur.h)"
+  },
+  "Nur Return Error": {
+    "prefix": "err",
+    "body": [
+      "return NUR_ERR(${1:suffix}, NUR_ERROR(${2:NUR_E_INTERNAL}, \"${3:message}\"));"
+    ],
+    "description": "Return error result (nur.h)"
+  },
+  "Nur Wrap Error": {
+    "prefix": "wrap",
+    "body": [
+      "return NUR_ERR(${1:suffix}, NUR_WRAP_ERROR(${2:error_val}, \"${3:new context}\"));"
+    ],
+    "description": "Wrap and propagate an existing error with new context (nur.h)"
+  }
+}

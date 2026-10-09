@@ -143,6 +143,26 @@ analyze:
 		echo "cppcheck not available, skipping static analysis"; \
 	fi
 
+# Code formatting (FAANG standard)
+.PHONY: format
+format:
+	@echo "Formatting source code..."
+	@if command -v clang-format >/dev/null 2>&1; then \
+		clang-format -i $(HEADER) $(TEST_SRC) $(C23_TEST_SRC) examples/basic/*.c benchmarks/*.c 2>/dev/null || true; \
+		echo "Formatting complete."; \
+	else \
+		echo "clang-format not available. Please install it."; \
+	fi
+
+.PHONY: format-check
+format-check:
+	@echo "Checking code formatting..."
+	@if command -v clang-format >/dev/null 2>&1; then \
+		clang-format --dry-run --Werror $(HEADER) $(TEST_SRC) $(C23_TEST_SRC) examples/basic/*.c benchmarks/*.c 2>/dev/null || true; \
+	else \
+		echo "clang-format not available. Skipping format check."; \
+	fi
+
 # Clean build artifacts
 .PHONY: clean
 clean:
@@ -159,7 +179,7 @@ dev: clean check test analyze
 
 # Release workflow  
 .PHONY: release
-release: clean check-c99 check-c11 check-c17 test-all analyze
+release: clean check-c99 check-c11 check-c17 test-all analyze format-check
 	@echo "All release checks passed!"
 
 # Coverage reporting (if gcov available)
@@ -271,6 +291,8 @@ help:
 	@echo "  test-valgrind- Run tests with memory checking"
 	@echo "  coverage     - Generate code coverage report"
 	@echo "  analyze      - Run static analysis"
+	@echo "  format       - Format source code using clang-format"
+	@echo "  format-check - Check code formatting"
 	@echo "  benchmark    - Run performance benchmarks"
 	@echo "  docs         - Generate all documentation"
 	@echo "  docs-api     - Generate API documentation"

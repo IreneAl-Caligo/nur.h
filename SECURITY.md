@@ -15,7 +15,7 @@ We take security vulnerabilities in nur.h seriously. If you discover a security 
 
 **DO NOT** open a public GitHub issue for security vulnerabilities.
 
-Instead, please email us directly at: **security@example.com**
+Instead, please email us directly at: **irenealcaligo@gmail.com**
 
 ### What to Include
 
@@ -142,7 +142,7 @@ nur.h includes several built-in security features:
 
 For security-related questions or concerns:
 
-- **Security reports**: security@example.com
+- **Security reports**: irenealcaligo@gmail.com
 - **General security questions**: Create a GitHub issue with "security" label
 - **Emergency contact**: For critical vulnerabilities affecting production systems
 

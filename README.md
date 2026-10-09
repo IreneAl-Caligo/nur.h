@@ -230,6 +230,7 @@ int32_t pos = NUR_OPTION_UNWRAP_OR(idx, -1);   // 1
 | `NUR_ERR_VOID(err)`                   | `NurResult_void` | Failure, no payload            |
 | `NUR_ERROR(code, msg)`                | `nur_error_t`    | Error with source location     |
 | `NUR_ERROR_CTX(code, msg, ctx)`       | `nur_error_t`    | Error + context string         |
+| `NUR_WRAP_ERROR(err, ctx)`            | `nur_error_t`    | Wrap/chain error with context  |
 | `NUR_ERROR_ERRNO(msg)`                | `nur_error_t`    | Error from current `errno`     |
 | `NUR_ERROR_ERRNO_CTX(msg, ctx)`       | `nur_error_t`    | Same + context string          |
 
@@ -263,6 +264,34 @@ int32_t pos = NUR_OPTION_UNWRAP_OR(idx, -1);   // 1
 | `nur_error_eprint(err)`                   | Print to `stderr`                    |
 | `nur_malloc(size)` → `NurResult_ptr`      | `malloc` wrapper, never silent NULL  |
 | `nur_realloc(ptr, size)` → `NurResult_ptr`| `realloc` wrapper                    |
+
+---
+
+## Advanced Enterprise Features
+
+### 1. Error Chaining & Context Wrapping
+Use `NUR_WRAP_ERROR` to append new context as an error bubbles up the call stack, without losing the original code or source location.
+```c
+NurResult_i32 load_config() {
+    NurResult_ptr file = nur_open("config.toml");
+    if (NUR_IS_ERR(file)) {
+        return NUR_ERR(i32, NUR_WRAP_ERROR(NUR_ERROR_OF(file), "failed to load config"));
+    }
+    // ...
+}
+```
+
+### 2. Stacktraces (Opt-in)
+Define `#define NUR_ENABLE_BACKTRACE` before including `nur.h` (on Linux or Windows) to automatically capture the native call stack whenever an error is instantiated. When `nur_error_print` is called, it will dump the full backtrace.
+
+---
+
+## IDE / LSP Support (Developer Experience)
+
+C macros can sometimes confuse Language Servers (like `clangd`). 
+
+1. **Auto-completion**: To ensure `clangd` perfectly understands `NurResult_T` types, generate a `compile_commands.json` for your project (e.g., using `bear -- make`). 
+2. **VSCode Snippets**: This repository includes a `.vscode/nur.code-snippets` file. Just type `try` or `unwrap` in VSCode to instantly generate `NUR_TRY_AUTO(...)` or `NUR_UNWRAP(...)` guard clauses.
 
 ---
 

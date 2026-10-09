@@ -19,7 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NurOption<T>` type for optional values
 - `[[nodiscard]]` attributes for C23, with GCC/Clang/MSVC fallbacks
 - `nur_malloc` and `nur_realloc` wrappers returning `NurResult_ptr`
-- `nur_error_print` and `nur_error_eprint` utilities
+- `NUR_WRAP_ERROR` macro for error context chaining
+- `NUR_ENABLE_BACKTRACE` optional native call-stack backtraces (Windows Win32 & Linux/macOS execinfo)
+- `NUR_TRY_AUTO` and `NUR_TRY_VOID_AUTO` for automatic type deduction under C23 `typeof` and GNU extensions
+- `nur_free` wrapper for memory management API symmetry
+- Zero-allocation string formatting engine (`nur_error_format`)
+- Strict ISO C Section 7.1.3 namespace isolation (`nur_internal_*`)
+- Google C style `.clang-format` configuration
+- Visual Studio Code snippets (`.vscode/nur.code-snippets`) for instant DX
+- WG14 ISO C Proposal documentation for native `_Result` / `_Option`
 - Multi-standard support: C99, C11, C17, C23
 - Cross-platform: GCC, Clang, MSVC
 - Comprehensive test suite (16 unit tests + 7 C23 feature tests)
