@@ -5,58 +5,35 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-10-07
+## [1.0.0] - 2026-10-11
 
 ### Added
-- Initial production release of nur.h
+- Production release of nur.h by Irene Al-Caligo
 - `NurResult<T>` type system for type-safe error handling
-- 50+ predefined error codes with systematic taxonomy
-- `NUR_ERROR`, `NUR_ERROR_CTX`, `NUR_ERROR_ERRNO` constructors
-- Source location tracking (file, function, line) for all errors
-- `NUR_TRY_TO` and `NUR_TRY_VOID` macros for error propagation
+- 36 semantic error codes with systematic taxonomy (+ NONE, USER_BASE)
+- `NUR_ERROR`, `NUR_ERROR_CTX`, `NUR_ERROR_ERRNO`, `NUR_ERROR_FROM_WIN32` constructors
+- Semantic errno mapping (`nur_error_code_from_errno`) for POSIX syscalls
+- Full Win32 and Winsock error mapping with corrected EOF and WSAEWOULDBLOCK codes
+- Source location tracking (file, function, line) with `NUR_NO_SOURCE_LOCATION` stripping option
+- `NUR_TRY_GOTO` and `NUR_TRY_VOID_GOTO` macros for leak-free C cleanup
+- `NUR_TRY_AUTO` and `NUR_TRY_VOID_AUTO` using `__typeof__` for strict C11/C99/C17 compatibility
+- `NUR_TRY_TO` and `NUR_TRY_VOID` macros for portable error propagation
 - `NUR_TRY_VOID_FROM_VOID` macro for void-to-void error chaining
-- `NUR_CHECK` and `NUR_CHECK_AS` macros for condition validation
+- Flat `NurResult_void` layout without union aliasing mismatches
+- Value-based `NUR_UNWRAP` on non-GNU preventing rvalue lvalue errors
+- Configurable panic handler via `nur_set_panic_handler()`
+- `noinline`, `cold`, and `noreturn` panic helpers reducing binary code size by ~11x
+- `nur_error_json()` zero-allocation RFC 8259 JSON formatter
+- `NUR_ASSERT_OK` and `NUR_ASSERT_ERR` unit test assertion helpers
 - `NurOption<T>` type for optional values
-- `[[nodiscard]]` attributes for C23, with GCC/Clang/MSVC fallbacks
+- `[[nodiscard]]` attributes for C23 type-level safety, with GCC/Clang/MSVC fallbacks
 - `nur_malloc` and `nur_realloc` wrappers returning `NurResult_ptr`
-- `NUR_WRAP_ERROR` macro for error context chaining
-- `NUR_ENABLE_BACKTRACE` optional native call-stack backtraces (Windows Win32 & Linux/macOS execinfo)
-- `NUR_TRY_AUTO` and `NUR_TRY_VOID_AUTO` for automatic type deduction under C23 `typeof` and GNU extensions
-- `nur_free` wrapper for memory management API symmetry
+- `NUR_WRAP_ERROR` macro for error context chaining preserving root traces
 - Zero-allocation string formatting engine (`nur_error_format`)
-- Strict ISO C Section 7.1.3 namespace isolation (`nur_internal_*`)
-- Google C style `.clang-format` configuration
-- Visual Studio Code snippets (`.vscode/nur.code-snippets`) for instant DX
-- WG14 ISO C Proposal documentation for native `_Result` / `_Option`
-- Multi-standard support: C99, C11, C17, C23
-- Cross-platform: GCC, Clang, MSVC
-- Comprehensive test suite (16 unit tests + 7 C23 feature tests)
-- 12 example programs demonstrating core patterns
-- Full documentation and tutorials
-- Bengali language guide for IDE integration
+- CMake `INTERFACE` target (`nur::nur`) and `FetchContent` support
+- pkg-config `nur.pc` specification
+- Multi-standard support: C99, C11, C17, C23, and C++11+
+- Comprehensive test suite (26 unit tests + 7 C23 feature tests)
+- Full GitHub Actions CI matrix for GCC, Clang, and MSVC
 
-### Core Features
-- Zero heap allocation in core library
-- Header-only architecture
-- No global mutable state
-- Complete type safety with compiler enforcement
-
-### Documentation
-- README with quick-start guide
-- API reference documentation
-- Getting started tutorial
-- CONTRIBUTING guidelines
-- CODE_OF_CONDUCT
-- SECURITY policy
-- Bengali IDE setup guide (Code::Blocks, VS Code, Kiro, CLion, Dev-C++)
-
-### Testing
-- All tests passing on GCC 16.1.0
-- C99/C11/C17/C23 standard compliance verified
-- Example programs tested and working
-
-### Known Limitations
-- `NUR_TRY` macro (statement expression version) requires GNU extensions
-- Void-to-void error propagation requires `NUR_TRY_VOID_FROM_VOID` macro
-
-[1.0.0]: https://github.com/nurhannu/nur.h/releases/tag/v1.0.0
+[1.0.0]: https://github.com/IreneAl-Caligo/nur.h/releases/tag/v1.0.0

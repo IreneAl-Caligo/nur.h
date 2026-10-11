@@ -61,7 +61,7 @@ check-c17:
 .PHONY: check-c23
 check-c23:
 	@echo "Checking C23 compatibility..."
-	$(CC) $(CFLAGS_C23) -fsyntax-only $(HEADER) || echo "C23 may not be supported by this compiler"
+	$(CC) $(CFLAGS_C23) -fsyntax-only $(HEADER)
 
 # Build test executable (default C11)
 $(TEST_BINARY): $(TEST_SRC) $(HEADER)
@@ -79,12 +79,12 @@ $(TEST_BINARY_C17): $(TEST_SRC) $(HEADER)
 	$(CC) $(CFLAGS_C17) -o $@ $(TEST_SRC)
 
 $(TEST_BINARY_C23): $(TEST_SRC) $(HEADER)
-	$(CC) $(CFLAGS_C23) -o $@ $(TEST_SRC) || echo "C23 compilation skipped"
+	$(CC) $(CFLAGS_C23) -o $@ $(TEST_SRC)
 
 # Build C23 feature test executable
 $(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
 	@echo "Building C23 feature test suite..."
-	$(CC) $(CFLAGS_C23) -o $@ $(C23_TEST_SRC) || echo "C23 feature tests compilation skipped"
+	$(CC) $(CFLAGS_C23) -o $@ $(C23_TEST_SRC)
 
 # Run tests
 .PHONY: test
@@ -114,13 +114,28 @@ test-c17: $(TEST_BINARY_C17)
 .PHONY: test-c23
 test-c23: $(TEST_BINARY_C23)
 	@echo "Running C23 tests..."
-	$(RUN_PREFIX)$(TEST_BINARY_C23) || echo "C23 testing skipped"
+	$(RUN_PREFIX)$(TEST_BINARY_C23)
 
 # Run C23 feature tests
 .PHONY: test-c23-features
 test-c23-features: $(C23_TEST_BINARY)
 	@echo "Running C23 feature validation tests..."
-	$(RUN_PREFIX)$(C23_TEST_BINARY) || echo "C23 feature testing skipped"
+	$(RUN_PREFIX)$(C23_TEST_BINARY)
+
+# AddressSanitizer and UndefinedBehaviorSanitizer
+.PHONY: test-asan
+test-asan:
+	@echo "Running tests with AddressSanitizer and UndefinedBehaviorSanitizer..."
+	$(CC) $(CFLAGS_BASE) -std=c11 -fsanitize=address,undefined -g -o test_asan$(EXE) $(TEST_SRC)
+	$(RUN_PREFIX)test_asan$(EXE)
+	@rm -f test_asan$(EXE)
+
+.PHONY: test-ubsan
+test-ubsan:
+	@echo "Running tests with UndefinedBehaviorSanitizer..."
+	$(CC) $(CFLAGS_BASE) -std=c11 -fsanitize=undefined -g -o test_ubsan$(EXE) $(TEST_SRC)
+	$(RUN_PREFIX)test_ubsan$(EXE)
+	@rm -f test_ubsan$(EXE)
 
 # Memory testing with Valgrind (if available)
 .PHONY: test-valgrind
@@ -143,12 +158,12 @@ analyze:
 		echo "cppcheck not available, skipping static analysis"; \
 	fi
 
-# Code formatting (FAANG standard)
+# Code formatting
 .PHONY: format
 format:
 	@echo "Formatting source code..."
 	@if command -v clang-format >/dev/null 2>&1; then \
-		clang-format -i $(HEADER) $(TEST_SRC) $(C23_TEST_SRC) examples/basic/*.c benchmarks/*.c 2>/dev/null || true; \
+		clang-format -i $(HEADER) $(TEST_SRC) $(C23_TEST_SRC) examples/basic/*.c benchmarks/*.c 2>/dev/null; \
 		echo "Formatting complete."; \
 	else \
 		echo "clang-format not available. Please install it."; \
@@ -158,7 +173,7 @@ format:
 format-check:
 	@echo "Checking code formatting..."
 	@if command -v clang-format >/dev/null 2>&1; then \
-		clang-format --dry-run --Werror $(HEADER) $(TEST_SRC) $(C23_TEST_SRC) examples/basic/*.c benchmarks/*.c 2>/dev/null || true; \
+		clang-format --dry-run --Werror $(HEADER) $(TEST_SRC) $(C23_TEST_SRC) examples/basic/*.c benchmarks/*.c; \
 	else \
 		echo "clang-format not available. Skipping format check."; \
 	fi

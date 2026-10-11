@@ -111,7 +111,7 @@ typedef struct {
     int x, y;
 } Point;
 
-NUR_RESULT_TYPE(Point, point) /* no semicolon: see NUR_RESULT_TYPE docs */
+NUR_RESULT_TYPE(Point, point);
 
 static int test_custom_result_type(void) {
     Point p = {10, 20};
@@ -264,9 +264,9 @@ static int test_error_errno(void) {
     errno = ENOENT;
     nur_error_t e = NUR_ERROR_ERRNO("open failed");
 
-    if (e.code != NUR_E_IO) return 0;
-    if (e.sys  != ENOENT)   return 0;
-    if (e.message == NULL)  return 0;
+    if (e.code != NUR_E_NOT_FOUND) return 0;
+    if (e.sys  != ENOENT)          return 0;
+    if (e.message == NULL)         return 0;
     if (strcmp(e.message, "open failed") != 0) return 0;
     /* Source location must be captured */
     if (e.file == NULL || e.func == NULL || e.line == 0) return 0;
@@ -274,8 +274,9 @@ static int test_error_errno(void) {
     /* NUR_ERROR_ERRNO_CTX variant */
     errno = EACCES;
     nur_error_t e2 = NUR_ERROR_ERRNO_CTX("read failed", "/etc/shadow");
-    if (e2.sys     != EACCES)          return 0;
-    if (e2.context == NULL)            return 0;
+    if (e2.code    != NUR_E_PERMISSION)   return 0;
+    if (e2.sys     != EACCES)             return 0;
+    if (e2.context == NULL)               return 0;
     if (strcmp(e2.context, "/etc/shadow") != 0) return 0;
 
     errno = 0; /* restore */
@@ -345,10 +346,6 @@ NUR_NODISCARD static NurResult_i32 always_ok(void) {
 }
 
 static int test_nur_ignore(void) {
-    /* NUR_IGNORE = ((void)(expr)). Under C23 [[nodiscard]] this suppresses the
-     * diagnostic per the standard. Under GCC's warn_unused_result extension the
-     * attribute fires even through a void-cast; we suppress with a pragma so the
-     * test itself can verify the macro compiles and executes without UB. */
 #if defined(NUR_GNU_EXTENSIONS) && !defined(NUR_C23)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -357,6 +354,174 @@ static int test_nur_ignore(void) {
 #if defined(NUR_GNU_EXTENSIONS) && !defined(NUR_C23)
 #pragma GCC diagnostic pop
 #endif
+    return 1;
+}
+
+/* Test NUR_TRY_GOTO and NUR_TRY_VOID_GOTO leak-free cleanup */
+static NurResult_i32 may_fail(int val) {
+    if (val < 0) return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "negative"));
+    return NUR_OK(i32, val * 10);
+}
+
+static NurResult_void may_fail_void(int val) {
+    if (val < 0) return NUR_ERR_VOID(NUR_ERROR(NUR_E_INVALID_ARGUMENT, "negative"));
+    return NUR_OK_VOID();
+}
+
+static int test_try_goto(void) {
+    int resource_cleaned = 0;
+    nur_error_t err = {0};
+    int val = 0;
+
+    /* Failure case: jump to cleanup */
+    NUR_TRY_GOTO(val, may_fail(-5), err, cleanup1);
+    val += 100; /* Should not be reached */
+
+cleanup1:
+    resource_cleaned = 1;
+    if (!resource_cleaned || err.code != NUR_E_INVALID_ARGUMENT) return 0;
+
+    /* Success case */
+    resource_cleaned = 0;
+    err = (nur_error_t){0};
+    NUR_TRY_GOTO(val, may_fail(5), err, cleanup2);
+    if (val != 50) return 0;
+
+cleanup2:
+    if (err.code != NUR_E_NONE) return 0;
+
+    /* Void goto test */
+    err = (nur_error_t){0};
+    NUR_TRY_VOID_GOTO(may_fail_void(-1), err, cleanup_void);
+    return 0; /* Should not be reached */
+
+cleanup_void:
+    if (err.code != NUR_E_INVALID_ARGUMENT) return 0;
+    return 1;
+}
+
+/* Test NUR_TRY_AUTO in strict C mode */
+static NurResult_i32 auto_pipeline(int x) {
+    int v1 = 0;
+    NUR_TRY_AUTO(i32, v1, may_fail(x));
+    return NUR_OK(i32, v1 + 1);
+}
+
+static int test_try_auto(void) {
+    NurResult_i32 ok_res = auto_pipeline(3);
+    if (!NUR_IS_OK(ok_res) || NUR_UNWRAP(ok_res) != 31) return 0;
+
+    NurResult_i32 err_res = auto_pipeline(-1);
+    if (NUR_IS_OK(err_res) || NUR_ERROR_OF(err_res).code != NUR_E_INVALID_ARGUMENT) return 0;
+
+    return 1;
+}
+
+/* Test semantic Win32 mapping */
+static int test_win32_mapping(void) {
+    /* 10035 = WSAEWOULDBLOCK -> NUR_E_WOULD_BLOCK */
+    if (nur_error_code_from_win32(10035UL) != NUR_E_WOULD_BLOCK) return 0;
+    /* 38 = ERROR_HANDLE_EOF -> NUR_E_EOF */
+    if (nur_error_code_from_win32(38UL) != NUR_E_EOF) return 0;
+    /* 10053 = WSAECONNABORTED -> NUR_E_CONNECTION */
+    if (nur_error_code_from_win32(10053UL) != NUR_E_CONNECTION) return 0;
+    /* 2 = ERROR_FILE_NOT_FOUND -> NUR_E_NOT_FOUND */
+    if (nur_error_code_from_win32(2UL) != NUR_E_NOT_FOUND) return 0;
+
+    nur_error_t win_err = NUR_ERROR_FROM_WIN32(10035UL, "socket would block");
+    if (win_err.code != NUR_E_WOULD_BLOCK) return 0;
+    if (win_err.sys != 10035) return 0;
+
+    return 1;
+}
+
+/* Test errno mapping */
+static int test_errno_mapping(void) {
+    if (nur_error_code_from_errno(ENOENT) != NUR_E_NOT_FOUND) return 0;
+    if (nur_error_code_from_errno(EACCES) != NUR_E_PERMISSION) return 0;
+    if (nur_error_code_from_errno(ENOMEM) != NUR_E_OUT_OF_MEMORY) return 0;
+    if (nur_error_code_from_errno(EEXIST) != NUR_E_ALREADY_EXISTS) return 0;
+    return 1;
+}
+
+/* Test NUR_WRAP_ERROR preserves root error attributes */
+static int test_wrap_error_preserves_trace(void) {
+    nur_error_t root = NUR_ERROR_CTX(NUR_E_NOT_FOUND, "root msg", "root ctx");
+    nur_error_t wrapped = NUR_WRAP_ERROR(root, "outer ctx");
+
+    if (wrapped.code != root.code) return 0;
+    if (wrapped.message != root.message) return 0;
+    if (wrapped.file != root.file) return 0;
+    if (wrapped.func != root.func) return 0;
+    if (wrapped.line != root.line) return 0;
+    if (strcmp(wrapped.context, "outer ctx") != 0) return 0;
+    return 1;
+}
+
+/* Test null safety and buffer formatting */
+static int test_error_format_null_safety(void) {
+    char buf[64] = "garbage";
+    size_t len = nur_error_format(NULL, buf, sizeof(buf));
+    if (len != 0) return 0;
+    if (buf[0] != '\0') return 0;
+
+    /* Format with valid error */
+    nur_error_t err = NUR_ERROR(NUR_E_TIMEOUT, "operation timed out");
+    len = nur_error_format(&err, buf, sizeof(buf));
+    if (len == 0 || strstr(buf, "TIMEOUT") == NULL) return 0;
+    return 1;
+}
+
+/* Test JSON error serialization */
+static int test_error_json(void) {
+    char buf[256];
+    size_t len = nur_error_json(NULL, buf, sizeof(buf));
+    if (len == 0 || strcmp(buf, "{\"ok\":true}") != 0) return 0;
+
+    nur_error_t err = NUR_ERROR_CTX(NUR_E_NOT_FOUND, "missing file", "cfg.json");
+    err.sys = 2;
+    len = nur_error_json(&err, buf, sizeof(buf));
+    if (len == 0) return 0;
+    if (strstr(buf, "\"ok\":false") == NULL) return 0;
+    if (strstr(buf, "\"code\":30") == NULL) return 0;
+    if (strstr(buf, "\"name\":\"NUR_E_NOT_FOUND\"") == NULL) return 0;
+    if (strstr(buf, "\"context\":\"cfg.json\"") == NULL) return 0;
+    if (strstr(buf, "\"sys\":2") == NULL) return 0;
+    return 1;
+}
+
+/* Test panic handler registration */
+static void dummy_panic_handler(const char *msg, const nur_error_t *e, const char *file, unsigned int line) {
+    (void)msg; (void)e; (void)file; (void)line;
+}
+
+static int test_panic_handler(void) {
+    nur_set_panic_handler(dummy_panic_handler);
+    nur_set_panic_handler(NULL);
+    return 1;
+}
+
+/* Test void result flat layout */
+static int test_void_result_flat_layout(void) {
+    NurResult_void ok_v = nur_ok_void();
+    if (!NUR_IS_OK(ok_v)) return 0;
+
+    nur_error_t my_err = NUR_ERROR(NUR_E_BUSY, "resource locked");
+    NurResult_void err_v = nur_err_void(my_err);
+    if (NUR_IS_OK(err_v)) return 0;
+    if (err_v.error.code != NUR_E_BUSY) return 0;
+    if (strcmp(err_v.error.message, "resource locked") != 0) return 0;
+
+    return 1;
+}
+
+/* Test assertion helpers */
+static int test_assert_helpers(void) {
+    NurResult_i32 r = NUR_OK(i32, 100);
+    NUR_ASSERT_OK(r);
+
+    NurResult_i32 err = NUR_ERR(i32, NUR_ERROR(NUR_E_TIMEOUT, "timeout"));
+    NUR_ASSERT_ERR(err, NUR_E_TIMEOUT);
     return 1;
 }
 
@@ -380,6 +545,17 @@ int main(void) {
     TEST(user_error_codes);
     TEST(unwrap_or);
     TEST(nur_ignore);
+    /* Comprehensive enterprise tests */
+    TEST(try_goto);
+    TEST(try_auto);
+    TEST(win32_mapping);
+    TEST(errno_mapping);
+    TEST(wrap_error_preserves_trace);
+    TEST(error_format_null_safety);
+    TEST(error_json);
+    TEST(panic_handler);
+    TEST(void_result_flat_layout);
+    TEST(assert_helpers);
     
     printf("\n=== Test Results ===\n");
     printf("Tests run: %d\n", tests_run);

@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "nur.h Error Taxonomy",
+  "version": "1.0.0",
+  "author": "Irene Al-Caligo",
+  "error_codes": {
+    "NUR_E_NONE": {
+      "code": 0,
+      "category": "success",
+      "meaning": "No error / operation succeeded",
+      "retryable": false
+    },
+    "NUR_E_INVALID_ARGUMENT": {
+      "code": 1,
+      "category": "validation",
+      "meaning": "Invalid function argument supplied",
+      "possible_causes": ["Null pointer passed where forbidden", "Out-of-bounds parameter"],
+      "fix_hint": "Check caller preconditions and validate inputs before invoking",
+      "retryable": false
+    },
+    "NUR_E_OUT_OF_RANGE": {
+      "code": 2,
+      "category": "validation",
+      "meaning": "Value exceeds permissible bounds",
+      "possible_causes": ["Index exceeds container length", "Numeric value exceeds maximum allowed"],
+      "fix_hint": "Verify upper and lower bounds before passing index or size",
+      "retryable": false
+    },
+    "NUR_E_NULL_POINTER": {
+      "code": 3,
+      "category": "validation",
+      "meaning": "Unexpected NULL pointer encountered",
+      "possible_causes": ["Uninitialized pointer", "Allocation failed previously"],
+      "fix_hint": "Verify pointer is non-NULL or handle nullable cases with Option<T>",
+      "retryable": false
+    },
+    "NUR_E_INVALID_STATE": {
+      "code": 4,
+      "category": "validation",
+      "meaning": "Operation invalid for current object state",
+      "possible_causes": ["Attempted read from closed handle", "State machine transition violation"],
+      "fix_hint": "Ensure object or state machine is initialized and in correct lifecycle phase",
+      "retryable": false
+    },
+    "NUR_E_OVERFLOW": {
+      "code": 5,
+      "category": "arithmetic",
+      "meaning": "Arithmetic or buffer capacity overflow",
+      "possible_causes": ["Integer overflow on addition/multiplication", "Sink buffer length exceeded"],
+      "fix_hint": "Use larger integer types or pre-check capacity before operation",
+      "retryable": false
+    },
+    "NUR_E_UNDERFLOW": {
+      "code": 6,
+      "category": "arithmetic",
+      "meaning": "Arithmetic underflow occurred",
+      "possible_causes": ["Floating point precision underflow", "Negative offset on unsigned range"],
+      "fix_hint": "Check minimum value thresholds",
+      "retryable": false
+    },
+    "NUR_E_PARSE": {
+      "code": 10,
+      "category": "data",
+      "meaning": "Data parsing or syntax error",
+      "possible_causes": ["Malformed JSON, config, or string", "Unexpected token encountered"],
+      "fix_hint": "Validate payload format against expected grammar",
+      "retryable": false
+    },
+    "NUR_E_FORMAT": {
+      "code": 11,
+      "category": "data",
+      "meaning": "Data format mismatch",
+      "possible_causes": ["Wrong schema or version header", "Unexpected string representation"],
+      "fix_hint": "Ensure producer and consumer agree on schema specification",
+      "retryable": false
+    },
+    "NUR_E_ENCODING": {
+      "code": 12,
+      "category": "data",
+      "meaning": "Character or binary encoding failure",
+      "possible_causes": ["Invalid UTF-8 sequence", "Corrupted base64 payload"],
+      "fix_hint": "Verify text encoding or sanitize input bytes",
+      "retryable": false
+    },
+    "NUR_E_CORRUPTED": {
+      "code": 13,
+      "category": "data",
+      "meaning": "Corrupted or inconsistent data detected",
+      "possible_causes": ["Bitrot on disk or network", "Partial write"],
+      "fix_hint": "Re-download or restore from backup",
+      "retryable": false
+    },
+    "NUR_E_TRUNCATED": {
+      "code": 14,
+      "category": "data",
+      "meaning": "Data was truncated prematurely",
+      "possible_causes": ["Sink buffer too small", "File ended before expected size"],
+      "fix_hint": "Provide larger buffer capacity or check file integrity",
+      "retryable": false
+    },
+    "NUR_E_CHECKSUM": {
+      "code": 15,
+      "category": "data",
+      "meaning": "Checksum or hash mismatch",
+      "possible_causes": ["CRC, MD5, or SHA validation failed"],
+      "fix_hint": "Re-transmit packet or verify file integrity",
+      "retryable": true
+    },
+    "NUR_E_OUT_OF_MEMORY": {
+      "code": 20,
+      "category": "resource",
+      "meaning": "Heap allocation failed (OOM)",
+      "possible_causes": ["System memory exhausted", "Requested allocation size unreasonably large"],
+      "fix_hint": "Free unused buffers, reduce batch sizes, or check size parameter",
+      "retryable": true
+    },
+    "NUR_E_RESOURCE_LIMIT": {
+      "code": 21,
+      "category": "resource",
+      "meaning": "System resource limit reached",
+      "possible_causes": ["EMFILE / too many open files", "Process thread limit reached"],
+      "fix_hint": "Close unused handles or raise ulimit / OS quotas",
+      "retryable": true
+    },
+    "NUR_E_BUSY": {
+      "code": 22,
+      "category": "resource",
+      "meaning": "Resource is locked or currently busy",
+      "possible_causes": ["File locked by another process", "Mutex contention"],
+      "fix_hint": "Wait or back off before retrying",
+      "retryable": true
+    },
+    "NUR_E_QUOTA": {
+      "code": 23,
+      "category": "resource",
+      "meaning": "Quota or rate limit exceeded",
+      "possible_causes": ["API rate limit hit", "Disk quota exceeded"],
+      "fix_hint": "Apply exponential backoff or request quota increase",
+      "retryable": true
+    },
+    "NUR_E_DEADLOCK": {
+      "code": 24,
+      "category": "resource",
+      "meaning": "Deadlock condition detected",
+      "possible_causes": ["Circular lock dependency", "Resource acquisition order violation"],
+      "fix_hint": "Enforce lock hierarchy and acquisition order",
+      "retryable": true
+    },
+    "NUR_E_NOT_FOUND": {
+      "code": 30,
+      "category": "io",
+      "meaning": "Requested file, key, or entity not found",
+      "possible_causes": ["Path does not exist", "Key missing from dictionary"],
+      "fix_hint": "Verify path existence or create parent directories",
+      "retryable": false
+    },
+    "NUR_E_PERMISSION": {
+      "code": 31,
+      "category": "io",
+      "meaning": "Permission denied / access forbidden",
+      "possible_causes": ["Insufficient file access rights", "Protected system resource"],
+      "fix_hint": "Check file permissions (chmod/ACL) or user privileges",
+      "retryable": false
+    },
+    "NUR_E_ALREADY_EXISTS": {
+      "code": 32,
+      "category": "io",
+      "meaning": "Entity already exists",
+      "possible_causes": ["File exists with O_EXCL", "Key collision"],
+      "fix_hint": "Use overwrite flag or choose distinct identifier",
+      "retryable": false
+    },
+    "NUR_E_IO": {
+      "code": 33,
+      "category": "io",
+      "meaning": "Generic input/output error",
+      "possible_causes": ["Disk read/write failure", "Broken hardware pipe"],
+      "fix_hint": "Check underlying hardware or storage health",
+      "retryable": true
+    },
+    "NUR_E_EOF": {
+      "code": 34,
+      "category": "io",
+      "meaning": "End of file or input stream reached",
+      "possible_causes": ["Stream consumed completely", "Connection closed gracefully"],
+      "fix_hint": "Normal termination condition for stream readers",
+      "retryable": false
+    },
+    "NUR_E_CLOSED": {
+      "code": 35,
+      "category": "io",
+      "meaning": "Descriptor or channel is closed",
+      "possible_causes": ["Write attempted to closed pipe / socket"],
+      "fix_hint": "Do not write to terminated channels",
+      "retryable": false
+    },
+    "NUR_E_WOULD_BLOCK": {
+      "code": 36,
+      "category": "io",
+      "meaning": "Non-blocking operation would block",
+      "possible_causes": ["Socket buffer full", "No data ready in non-blocking mode"],
+      "fix_hint": "Poll/epoll for readiness before reading or writing",
+      "retryable": true
+    },
+    "NUR_E_TIMEOUT": {
+      "code": 40,
+      "category": "network",
+      "meaning": "Operation timed out",
+      "possible_causes": ["Network latency", "Remote server unresponsive"],
+      "fix_hint": "Increase timeout threshold or retry with jittered backoff",
+      "retryable": true
+    },
+    "NUR_E_CANCELLED": {
+      "code": 41,
+      "category": "network",
+      "meaning": "Operation was cancelled",
+      "possible_causes": ["User pressed Ctrl+C", "Context cancellation token fired"],
+      "fix_hint": "Clean up resources allocated prior to cancellation",
+      "retryable": false
+    },
+    "NUR_E_CONNECTION": {
+      "code": 42,
+      "category": "network",
+      "meaning": "Network connection dropped or reset",
+      "possible_causes": ["Peer disconnected", "Network path down"],
+      "fix_hint": "Reconnect and re-establish session state",
+      "retryable": true
+    },
+    "NUR_E_PROTOCOL": {
+      "code": 43,
+      "category": "network",
+      "meaning": "Protocol violation or unexpected frame",
+      "possible_causes": ["Client/server protocol mismatch", "Corrupted frame sequence"],
+      "fix_hint": "Verify handshake and protocol version agreement",
+      "retryable": false
+    },
+    "NUR_E_AGAIN": {
+      "code": 44,
+      "category": "network",
+      "meaning": "Temporary failure; try again",
+      "possible_causes": ["Resource momentarily unavailable (EAGAIN)"],
+      "fix_hint": "Retry immediately or after short backoff",
+      "retryable": true
+    },
+    "NUR_E_REFUSED": {
+      "code": 45,
+      "category": "network",
+      "meaning": "Connection refused by target",
+      "possible_causes": ["Target port not listening", "Firewall rejected packet"],
+      "fix_hint": "Verify remote host and port are active and reachable",
+      "retryable": true
+    },
+    "NUR_E_UNSUPPORTED": {
+      "code": 50,
+      "category": "system",
+      "meaning": "Feature or operation unsupported on this platform",
+      "possible_causes": ["OS missing system call", "Hardware lacks required feature"],
+      "fix_hint": "Check platform support matrix or provide fallback implementation",
+      "retryable": false
+    },
+    "NUR_E_INTERNAL": {
+      "code": 51,
+      "category": "system",
+      "meaning": "Internal subsystem failure",
+      "possible_causes": ["Unrecoverable internal fault"],
+      "fix_hint": "Check error context and system logs",
+      "retryable": false
+    },
+    "NUR_E_BUG": {
+      "code": 52,
+      "category": "system",
+      "meaning": "Software invariant or contract violated (bug)",
+      "possible_causes": ["Unreachable branch reached", "Corrupted internal state"],
+      "fix_hint": "File issue with reproducible trace",
+      "retryable": false
+    },
+    "NUR_E_VERSION": {
+      "code": 53,
+      "category": "system",
+      "meaning": "Version incompatibility",
+      "possible_causes": ["Binary and library major version mismatch"],
+      "fix_hint": "Upgrade or harmonize library versions",
+      "retryable": false
+    },
+    "NUR_E_UNINITIALIZED": {
+      "code": 54,
+      "category": "system",
+      "meaning": "Subsystem accessed before initialization",
+      "possible_causes": ["Missing initialization call before use"],
+      "fix_hint": "Invoke subsystem initialization function before calling methods",
+      "retryable": false
+    },
+    "NUR_E_SYSTEM": {
+      "code": 55,
+      "category": "system",
+      "meaning": "Operating system error",
+      "possible_causes": ["Underlying OS kernel error (inspect .sys field)"],
+      "fix_hint": "Check system error code in err.sys",
+      "retryable": true
+    },
+    "NUR_E_USER_BASE": {
+      "code": 1000,
+      "category": "user",
+      "meaning": "Base offset for application-specific error codes",
+      "retryable": false
+    }
+  }
+}

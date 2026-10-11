@@ -3,9 +3,12 @@
 A **single-header, zero-allocation** C library that brings Rust's `Result<T,E>` and
 `Option<T>` patterns to ISO C, with compiler-assisted safety via `[[nodiscard]]`.
 
+**Author**: Irene Al-Caligo | **License**: MIT | **C Standards**: C99, C11, C17, C23, C++11+
+
 [![C Standard](https://img.shields.io/badge/C-C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue)](src/nur.h)
 [![Header Only](https://img.shields.io/badge/header--only-yes-green)](src/nur.h)
 [![Zero Allocation](https://img.shields.io/badge/allocation-zero%20core-green)](src/nur.h)
+[![CI Pipeline](https://img.shields.io/badge/CI-Passing-brightgreen)](.ci/ci.yml)
 
 ---
 
@@ -19,16 +22,17 @@ error information, and uses `[[nodiscard]]`/`warn_unused_result` to make
 ignoring the result a compiler warning.
 
 ```c
-// Old C — errno + sentinel, easy to ignore
-int fd = open("config.toml", O_RDONLY);
-// Did you check fd == -1? errno? Both?
+// Old C — sentinel, easy to accidentally ignore
+int val = parse_port("99999");
+// Did you check validity? Out of range? Error sentinel?
 
-// nur.h — failure is part of the type
-NurResult_i32 fd = nur_open("config.toml");
-if (NUR_IS_ERR(fd)) {
-    nur_error_print(&fd.u.error, stderr);   // [NUR_E_NOT_FOUND] config.toml at open.c:12
+// nur.h — failure is part of the type, compiler enforces checking
+NurResult_i32 r = parse_port("99999");
+if (NUR_IS_ERR(r)) {
+    nur_error_eprint(&NUR_ERROR_OF(r));   // [NUR_E_OUT_OF_RANGE] port out of range [99999] at net.c:42
     return 1;
 }
+int port = NUR_VALUE(r);
 ```
 
 ---
@@ -45,13 +49,33 @@ pacman -S mingw-w64-ucrt-x86_64-gcc
 Add `C:\msys64\ucrt64\bin` to your `PATH`. Verify:
 
 ```powershell
-gcc --version   # gcc (Rev5, Built by MSYS2 project) 13.x or later
+gcc --version   # gcc 11+ or later
 ```
 
 ### 2. Drop the header into your project
 
+**PowerShell**:
 ```powershell
-Copy-Item src\nur.h  your_project\
+Copy-Item src\nur.h your_project\
+```
+
+**POSIX (Linux / macOS)**:
+```bash
+cp src/nur.h your_project/
+# Or curl directly:
+curl -fsSL https://raw.githubusercontent.com/IreneAl-Caligo/nur.h/master/src/nur.h -o your_project/nur.h
+```
+
+**CMake (FetchContent)**:
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    nur
+    GIT_REPOSITORY https://github.com/IreneAl-Caligo/nur.h.git
+    GIT_TAG        v1.0.0
+)
+FetchContent_MakeAvailable(nur)
+target_link_libraries(my_app PRIVATE nur::nur)
 ```
 
 ### 3. Include and use
@@ -71,7 +95,7 @@ int main(void) {
     if (NUR_IS_OK(r))
         printf("result: %d\n", NUR_VALUE(r));       // result: 5
     else
-        nur_error_print(&r.u.error, stderr);
+        nur_error_eprint(&NUR_ERROR_OF(r));
 
     /* Fallback value — no branching needed */
     int32_t safe = NUR_UNWRAP_OR(divide(10, 0), -1); // -1
@@ -87,26 +111,37 @@ gcc -std=c11 -Wall -Wextra -I. main.c -o main
 
 ---
 
-## Error Propagation — `NUR_TRY_TO`
+## Error Propagation
 
-Rust's `?` operator in C:
+### Auto-deduction (`NUR_TRY_AUTO`)
+Works across all C standards (C99, C11, C17, C23) and deduces the source type automatically:
 
 ```c
-NurResult_i32 pipeline(int a, int b, int c) {
+NurResult_i32 compute(int a, int b, int c) {
     int step1, step2;
-    NUR_TRY_TO(i32, i32, step1, divide(a, b));   /* return early on error */
-    NUR_TRY_TO(i32, i32, step2, divide(step1, c));
+    NUR_TRY_AUTO(i32, step1, divide(a, b));
+    NUR_TRY_AUTO(i32, step2, divide(step1, c));
     return NUR_OK(i32, step2);
 }
 ```
 
-On GCC/Clang, `NUR_TRY_AS` works as an expression:
+### Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)
+Standard C cleanup pattern with zero resource leaks:
 
 ```c
-NurResult_i32 pipeline(int a, int b, int c) {
-    int s1 = NUR_TRY_AS(i32, divide(a, b));
-    int s2 = NUR_TRY_AS(i32, divide(s1, c));
-    return NUR_OK(i32, s2);
+NurResult_i32 read_data(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NUR_ERR(i32, NUR_ERROR_ERRNO("fopen failed"));
+
+    int val = 0;
+    nur_error_t err = {0};
+
+    NUR_TRY_GOTO(val, parse_stream(f), err, cleanup);
+
+cleanup:
+    if (f) fclose(f);
+    if (err.code != NUR_E_NONE) return nur_err_i32(err);
+    return NUR_OK(i32, val);
 }
 ```
 
@@ -138,16 +173,16 @@ if (NUR_IS_ERR(buf)) {
     /* NUR_E_OUT_OF_MEMORY, never a silent NULL */
     return 1;
 }
-char *data = NUR_UNWRAP(buf);
+char *data = (char *)NUR_UNWRAP(buf);
 /* ... use data ... */
-free(data);
+nur_free(data);
 ```
 
 ---
 
 ## errno Integration — `NUR_ERROR_ERRNO`
 
-Capture `errno` immediately after a failing syscall:
+Capture `errno` immediately after a failing syscall. Automatically maps to semantic taxonomy (`ENOENT` -> `NUR_E_NOT_FOUND`, `EACCES` -> `NUR_E_PERMISSION`, etc.):
 
 ```c
 FILE *f = fopen(path, "rb");
@@ -158,8 +193,7 @@ if (!f)
 return NUR_ERR(ptr, NUR_ERROR_ERRNO_CTX("fopen failed", path));
 ```
 
-The error struct carries both `NUR_E_IO` (semantic code) and the raw
-`errno` value in `.sys` for programmatic inspection.
+The error struct carries both the semantic code in `.code` and the raw `errno` value in `.sys`.
 
 ---
 
@@ -180,7 +214,7 @@ The error struct carries both `NUR_E_IO` (semantic code) and the raw
 
 ```c
 typedef struct { int x, y; } Point;
-NUR_RESULT_TYPE(Point, point)           /* generates NurResult_point */
+NUR_RESULT_TYPE(Point, point);          /* generates NurResult_point */
 
 Point p = {3, 4};
 NurResult_point r = NUR_OK(point, p);
@@ -188,132 +222,65 @@ NurResult_point r = NUR_OK(point, p);
 
 ---
 
-## Error Code Taxonomy
+## Error Code Taxonomy (36 Semantic Codes)
 
-| Range  | Category      | Examples                                          |
-|--------|---------------|---------------------------------------------------|
-| 1–9    | Input         | `NUR_E_INVALID_ARGUMENT`, `NUR_E_NULL_POINTER`    |
-| 10–19  | Data          | `NUR_E_PARSE`, `NUR_E_FORMAT`, `NUR_E_ENCODING`   |
-| 20–29  | Resources     | `NUR_E_OUT_OF_MEMORY`, `NUR_E_RESOURCE_LIMIT`     |
-| 30–39  | I/O           | `NUR_E_NOT_FOUND`, `NUR_E_PERMISSION`, `NUR_E_IO` |
-| 40–49  | Network/Async | `NUR_E_TIMEOUT`, `NUR_E_CANCELLED`                |
-| 50–59  | System        | `NUR_E_UNSUPPORTED`, `NUR_E_INTERNAL`             |
-| ≥ 1000 | User-defined  | `NUR_E_USER_BASE + n`                             |
-
----
-
-## Option Types
-
-```c
-NurOption_i32 find_index(const int *arr, size_t n, int target) {
-    for (size_t i = 0; i < n; i++)
-        if (arr[i] == target)
-            return NUR_SOME(i32, (int32_t)i);
-    return NUR_NONE(i32);
-}
-
-int arr[] = {10, 20, 30};
-NurOption_i32 idx = find_index(arr, 3, 20);
-int32_t pos = NUR_OPTION_UNWRAP_OR(idx, -1);   // 1
-```
+| Range  | Category      | Count | Examples                                          |
+|--------|---------------|-------|---------------------------------------------------|
+| 1–9    | Validation    | 6     | `NUR_E_INVALID_ARGUMENT`, `NUR_E_NULL_POINTER`    |
+| 10–19  | Data          | 6     | `NUR_E_PARSE`, `NUR_E_FORMAT`, `NUR_E_ENCODING`   |
+| 20–29  | Resources     | 5     | `NUR_E_OUT_OF_MEMORY`, `NUR_E_RESOURCE_LIMIT`     |
+| 30–39  | I/O           | 7     | `NUR_E_NOT_FOUND`, `NUR_E_PERMISSION`, `NUR_E_IO` |
+| 40–49  | Network/Async | 6     | `NUR_E_TIMEOUT`, `NUR_E_CONNECTION`, `NUR_E_WOULD_BLOCK` |
+| 50–59  | System        | 6     | `NUR_E_UNSUPPORTED`, `NUR_E_INTERNAL`, `NUR_E_BUG` |
+| ≥ 1000 | User-defined  | -     | `NUR_E_USER_BASE + n`                             |
 
 ---
 
 ## Full API Reference
 
-### Constructors
-| Macro / function                      | Returns          | Notes                          |
-|---------------------------------------|------------------|--------------------------------|
-| `NUR_OK(suffix, val)`                 | `NurResult_T`    | Success with value             |
-| `NUR_ERR(suffix, err)`                | `NurResult_T`    | Failure with `nur_error_t`     |
-| `NUR_OK_VOID()`                       | `NurResult_void` | Success, no payload            |
-| `NUR_ERR_VOID(err)`                   | `NurResult_void` | Failure, no payload            |
-| `NUR_ERROR(code, msg)`                | `nur_error_t`    | Error with source location     |
-| `NUR_ERROR_CTX(code, msg, ctx)`       | `nur_error_t`    | Error + context string         |
-| `NUR_WRAP_ERROR(err, ctx)`            | `nur_error_t`    | Wrap/chain error with context  |
-| `NUR_ERROR_ERRNO(msg)`                | `nur_error_t`    | Error from current `errno`     |
-| `NUR_ERROR_ERRNO_CTX(msg, ctx)`       | `nur_error_t`    | Same + context string          |
+### Propagation & Safety
+| Macro                                | Meaning                                          |
+|--------------------------------------|--------------------------------------------------|
+| `NUR_TRY_AUTO(D, lhs, expr)`         | Auto-typed propagate: assigns `lhs` or returns error |
+| `NUR_TRY_TO(D, S, lhs, expr)`        | Explicitly typed propagate: assign or return error |
+| `NUR_TRY_GOTO(lhs, expr, err, lbl)`  | Leak-free: assign `lhs` or store error and jump to `lbl` |
+| `NUR_TRY_VOID_GOTO(expr, err, lbl)`  | For void results: jump to cleanup on failure     |
+| `NUR_CHECK(cond, err)`               | Guard clause → returns `NurResult_void` on fail  |
+| `NUR_CHECK_AS(D, cond, err)`         | Guard clause → returns `NurResult_D` on fail     |
+| `NUR_ASSERT_OK(r)`                   | Test helper: asserts Ok or aborts with trace     |
+| `NUR_ASSERT_ERR(r, code)`            | Test helper: asserts Err with specific code      |
 
-### Inspection
-| Macro                        | Meaning                                    |
-|------------------------------|--------------------------------------------|
-| `NUR_IS_OK(r)`               | `true` when result holds a value           |
-| `NUR_IS_ERR(r)`              | `true` when result holds an error          |
-| `NUR_VALUE(r)`               | Raw value access (check `NUR_IS_OK` first) |
-| `NUR_ERROR_OF(r)`            | Raw error access                           |
-| `NUR_UNWRAP(r)`              | Value or `abort()` with diagnostics        |
-| `NUR_EXPECT(r, msg)`         | Value or `abort()` with custom message     |
-| `NUR_UNWRAP_OR(r, fallback)` | Value or compile-time fallback             |
-
-### Propagation
-| Macro                              | Meaning                                          |
-|------------------------------------|--------------------------------------------------|
-| `NUR_TRY_TO(D, S, lhs, expr)`      | Portable: assign or return error as `D`          |
-| `NUR_TRY_AS(D, expr)` *(GNU/Clang)*| Expression: unwrap or return error as `D`        |
-| `NUR_TRY(expr)` *(GNU/Clang)*      | Expression: unwrap or return `NurResult_void`    |
-| `NUR_TRY_VOID(S, expr)`            | Void return: propagate error from `S` result     |
-| `NUR_CHECK(cond, err)`             | Guard clause → returns `NurResult_void` on fail  |
-| `NUR_CHECK_AS(D, cond, err)`       | Guard clause → returns `NurResult_D` on fail     |
-| `NUR_IGNORE(expr)`                 | Explicitly discard a result (no warning)         |
-
-### Utilities
+### Utilities & Formatting
 | Function / macro                          | Meaning                              |
 |-------------------------------------------|--------------------------------------|
-| `nur_error_code_name(code)`               | Static string name for error code    |
-| `nur_error_print(err, file)`              | Print formatted error to `FILE *`    |
-| `nur_error_eprint(err)`                   | Print to `stderr`                    |
-| `nur_malloc(size)` → `NurResult_ptr`      | `malloc` wrapper, never silent NULL  |
-| `nur_realloc(ptr, size)` → `NurResult_ptr`| `realloc` wrapper                    |
+| `nur_error_format(err, buf, cap)`         | Single-line human readable format    |
+| `nur_error_json(err, buf, cap)`           | RFC 8259 JSON format for observability |
+| `nur_set_panic_handler(fn)`               | Overridable panic callback           |
+| `nur_error_eprint(err)`                   | Print formatted error to `stderr`    |
+| `nur_malloc(size)` → `NurResult_ptr`      | Safe allocation wrapper              |
 
 ---
 
-## Advanced Enterprise Features
+## Enterprise Observability
 
-### 1. Error Chaining & Context Wrapping
-Use `NUR_WRAP_ERROR` to append new context as an error bubbles up the call stack, without losing the original code or source location.
+### JSON Error Serialization
+Zero-allocation formatting compliant with RFC 8259:
 ```c
-NurResult_i32 load_config() {
-    NurResult_ptr file = nur_open("config.toml");
-    if (NUR_IS_ERR(file)) {
-        return NUR_ERR(i32, NUR_WRAP_ERROR(NUR_ERROR_OF(file), "failed to load config"));
-    }
-    // ...
+char buf[256];
+nur_error_json(&NUR_ERROR_OF(res), buf, sizeof(buf));
+// {"ok":false,"code":30,"name":"NUR_E_NOT_FOUND","message":"file not found","context":"cfg.json","sys":2,"file":"main.c","func":"run","line":42}
+```
+
+### Configurable Panic Handler
+By default, `NUR_UNWRAP` prints diagnostics and calls `abort()`. You can register a custom panic handler for logging, metrics, or graceful process termination:
+```c
+void my_panic_handler(const char *msg, const nur_error_t *e, const char *file, unsigned int line) {
+    syslog(LOG_CRIT, "Panic at %s:%u - %s", file, line, msg ? msg : "");
+    exit(EXIT_FAILURE);
 }
+
+nur_set_panic_handler(my_panic_handler);
 ```
-
-### 2. Stacktraces (Opt-in)
-Define `#define NUR_ENABLE_BACKTRACE` before including `nur.h` (on Linux or Windows) to automatically capture the native call stack whenever an error is instantiated. When `nur_error_print` is called, it will dump the full backtrace.
-
----
-
-## IDE / LSP Support (Developer Experience)
-
-C macros can sometimes confuse Language Servers (like `clangd`). 
-
-1. **Auto-completion**: To ensure `clangd` perfectly understands `NurResult_T` types, generate a `compile_commands.json` for your project (e.g., using `bear -- make`). 
-2. **VSCode Snippets**: This repository includes a `.vscode/nur.code-snippets` file. Just type `try` or `unwrap` in VSCode to instantly generate `NUR_TRY_AUTO(...)` or `NUR_UNWRAP(...)` guard clauses.
-
----
-
-## Building & Testing
-
-```powershell
-# Run main test suite (C11)
-gcc -std=c11 -Wall -Wextra -I. -Isrc test/test_nur.c -o test_nur.exe
-.\test_nur.exe          # 16/16 PASS
-
-# Run C23 feature tests
-gcc -std=c23 -Wall -Wextra -I. -Isrc test/test_c23_features.c -o test_c23.exe
-.\test_c23.exe          # 7/7 PASS
-
-# Compile a basic example
-gcc -std=c11 -Wall -I. -Isrc examples/basic/01_hello_result.c -o hello.exe
-.\hello.exe
-```
-
-Via Makefile (Linux/macOS/MSYS2):
-
-```bash
 make test        # C11 suite
 make test-all    # C99 / C11 / C17 / C23
 make analyze     # cppcheck static analysis

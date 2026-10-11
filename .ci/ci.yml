@@ -1,0 +1,91 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  linux-matrix:
+    name: Linux (${{ matrix.compiler }} / ${{ matrix.c_std }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        c_std: [c99, c11, c17, c2x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "clang" ]; then
+            sudo apt-get update && sudo apt-get install -y clang
+          fi
+
+      - name: Build and Run Test Suite
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          $CC -std=${{ matrix.c_std }} -Wall -Wextra -Wpedantic -Werror -Isrc test/test_nur.c -o test_nur
+          ./test_nur
+
+  sanitizers:
+    name: Memory & Undefined Behavior Sanitizers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run AddressSanitizer & UndefinedBehaviorSanitizer
+        run: |
+          gcc -std=c11 -Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -g -Isrc test/test_nur.c -o test_asan
+          ./test_asan
+
+  windows-msvc:
+    name: Windows (MSVC & MinGW)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Test MSVC C11 / C17
+        run: |
+          cl /std:c11 /W4 /WX /Isrc test\test_nur.c /Fe:test_msvc_c11.exe
+          .\test_msvc_c11.exe
+          cl /std:c17 /W4 /WX /Isrc test\test_nur.c /Fe:test_msvc_c17.exe
+          .\test_msvc_c17.exe
+
+  cpp-interop:
+    name: C++ Interoperability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test g++ C++11 / C++17
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -Isrc test/test_nur.c -o test_cpp11
+          ./test_cpp11
+          g++ -std=c++17 -Wall -Wextra -Werror -Isrc test/test_nur.c -o test_cpp17
+          ./test_cpp17
+
+  quality-gates:
+    name: Static Analysis & Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck & python
+        run: |
+          sudo apt-get update && sudo apt-get install -y cppcheck python3
+
+      - name: Static Analysis (cppcheck)
+        run: |
+          cppcheck --enable=all --std=c11 --suppress=missingIncludeSystem --error-exitcode=1 src/nur.h
+
+      - name: Verify Documentation Generator
+        run: |
+          python3 tools/generate_docs.py src/nur.h --output docs/api/api_ref.md
+          git diff --exit-code docs/api/api_ref.md

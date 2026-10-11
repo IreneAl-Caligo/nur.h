@@ -26,7 +26,7 @@
 #include "../../src/nur.h"
 
 /* Custom result types for this example */
-NUR_RESULT_TYPE(int, IntResult)
+NUR_RESULT_TYPE(int, IntResult);
 typedef NurResult_IntResult IntResult;
 
 /**

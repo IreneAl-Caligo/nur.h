@@ -31,7 +31,7 @@ typedef struct {
 } ConfigFile;
 
 /* Generate NurOption type for configuration values */
-NUR_OPTION_TYPE(const char *, ccstr)
+NUR_OPTION_TYPE(const char *, ccstr);
 
 /**
  * Parse a single configuration line in "key=value" format.

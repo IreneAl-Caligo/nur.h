@@ -1,0 +1,7 @@
+prefix=/usr/local
+includedir=${prefix}/include
+
+Name: nur
+Description: Rust-style Result and Option error handling for ISO C
+Version: 1.0.0
+Cflags: -I${includedir}

@@ -29,8 +29,8 @@ typedef struct {
 } Config;
 
 /* Generate result types for our custom structs */
-NUR_RESULT_TYPE(Point, point)
-NUR_RESULT_TYPE(Config, config)
+NUR_RESULT_TYPE(Point, point);
+NUR_RESULT_TYPE(Config, config);
 
 /**
  * Create a point with validation.

@@ -125,7 +125,7 @@ NurResult_void success = NUR_OK_VOID();             // Success with no value
 NurResult_i32 failure = NUR_ERR(i32, NUR_ERROR(NUR_E_NOT_FOUND, "File not found"));
 
 // For void results
-NurResult_void failure = NUR_ERR_VOID(NUR_ERROR(NUR_E_PERMISSION_DENIED, "Access denied"));
+NurResult_void void_failure = NUR_ERR_VOID(NUR_ERROR(NUR_E_PERMISSION, "Access denied"));
 ```
 
 ### 3. Checking Results
@@ -201,7 +201,7 @@ NUR_E_OUT_OF_MEMORY    // Memory allocation failed
 
 // I/O (30-39)
 NUR_E_NOT_FOUND        // File/resource not found
-NUR_E_PERMISSION_DENIED // Permission denied
+NUR_E_PERMISSION       // Permission denied (alias: NUR_E_PERMISSION_DENIED)
 NUR_E_IO               // I/O operation failed
 ```
 

@@ -1,0 +1,65 @@
+# nur.h: Rust-Style Result<T,E> and Option<T> for C
+
+> Single-header, zero-allocation error handling library for ISO C (C99, C11, C17, C23) and C++.
+> Author: Irene Al-Caligo | License: MIT
+
+## Core Philosophy
+- Zero heap allocation in core library.
+- Types: `NurResult_<suffix>` (tagged union `{ bool ok; union { T value; nur_error_t error; } u; }`) and `NurResult_void` (`{ bool ok; nur_error_t error; }`).
+- Predefined types: `i32`, `i64`, `usize`, `f32`, `f64`, `cstr`, `ptr`, `void`.
+- Predefined options: `NurOption_<suffix>` (`{ bool some; T value; }`).
+- Exact error taxonomy: 36 enum codes (categories: validation 1-9, data 10-19, resource 20-29, io 30-39, network 40-49, system 50-59, user 1000+).
+
+## Essential API Reference
+
+### Result Constructors
+- `NUR_OK(suffix, val)` -> Success result with value
+- `NUR_ERR(suffix, err)` -> Error result with `nur_error_t`
+- `NUR_OK_VOID()` -> Success void result
+- `NUR_ERR_VOID(err)` -> Failure void result
+
+### Error Constructors
+- `NUR_ERROR(code, msg)` -> Creates error with automatic file, function, line
+- `NUR_ERROR_CTX(code, msg, ctx)` -> Creates error with additional operation context
+- `NUR_ERROR_ERRNO(msg)` -> Captures errno and maps to semantic `nur_error_code_t`
+- `NUR_ERROR_FROM_WIN32(err, msg)` -> Maps Win32 error code to semantic `nur_error_code_t`
+- `NUR_WRAP_ERROR(err, new_ctx)` -> Wraps context preserving root source line and backtrace
+
+### Inspection & Unwrapping
+- `NUR_IS_OK(r)` -> `true` if succeeded
+- `NUR_IS_ERR(r)` -> `true` if failed
+- `NUR_VALUE(r)` -> Access value (MUST check `NUR_IS_OK` first)
+- `NUR_ERROR_OF(r)` -> Access error struct
+- `NUR_UNWRAP(r)` -> Unwraps or triggers panic (noinline, configurable via `nur_set_panic_handler`)
+- `NUR_UNWRAP_OR(r, fallback)` -> Unwraps value or returns fallback
+
+### Propagation
+- `NUR_TRY_TO(DestSuffix, SrcSuffix, lhs, expr)` -> Returns error or assigns value
+- `NUR_TRY_AUTO(DestSuffix, lhs, expr)` -> Deduces source type via `__typeof__` (works in all C standards)
+- `NUR_TRY_GOTO(lhs, expr, errvar, label)` -> Assigns lhs or jumps to label for leak-free cleanup
+- `NUR_CHECK(cond, err)` -> Returns `nur_err_void(err)` if condition is false
+- `NUR_CHECK_AS(DestSuffix, cond, err)` -> Returns typed error if condition is false
+
+### Utilities
+- `nur_error_format(err, buf, cap)` -> Formats error to single-line text
+- `nur_error_json(err, buf, cap)` -> Formats error as valid RFC 8259 JSON
+- `nur_set_panic_handler(fn)` -> Overrides default panic abort behavior
+- `NUR_ASSERT_OK(r)` / `NUR_ASSERT_ERR(r, code)` -> Unit test assertion helpers
+
+## Standard Idiom
+```c
+#include "nur.h"
+
+NurResult_i32 compute(int x) {
+    if (x < 0) return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "must be non-negative"));
+    return NUR_OK(i32, x * 2);
+}
+
+int main(void) {
+    NurResult_i32 res = compute(10);
+    if (NUR_IS_OK(res)) {
+        printf("Success: %d\n", NUR_VALUE(res));
+    }
+    return 0;
+}
+```
