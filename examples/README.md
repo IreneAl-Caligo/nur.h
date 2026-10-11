@@ -125,6 +125,60 @@ examples/
 - Word extraction and counting
 - Text validation patterns
 
+### 03_cli_arg_parser.c
+**Purpose**: Robust command-line argument parser  
+**Compile**: `gcc -std=c11 -Wall -Wextra -Wpedantic -I../../src real-world/03_cli_arg_parser.c -o cli_parser`  
+**Demonstrates**:
+- Parsing flags, key-value options, and positional parameters without heap allocation
+- Semantic validation of integers with bounds checking (ports 1..65535)
+- Custom result type `NurResult_cli_config`
+- Structured error diagnostics for unknown options or missing arguments
+
+### 04_json_parser.c
+**Purpose**: Zero-allocation JSON tokenizer and field reader  
+**Compile**: `gcc -std=c11 -Wall -Wextra -Wpedantic -I../../src real-world/04_json_parser.c -o json_parser`  
+**Demonstrates**:
+- Streaming extraction of strings and integers from JSON payloads
+- Zero-copy string slice result type `NurResult_json_slice`
+- Precise syntax validation (unclosed quotes, unexpected tokens)
+- Safe error propagation with exact token offsets
+
+### 05_socket_server.c
+**Purpose**: Cross-platform TCP networking with leak-free resource cleanup  
+**Compile**: `gcc -std=c11 -Wall -Wextra -Wpedantic -I../../src real-world/05_socket_server.c -lws2_32 -o socket_server` (Windows) or `-o socket_server` (POSIX)  
+**Demonstrates**:
+- Portably creating and managing TCP listeners (Winsock + POSIX)
+- Guaranteeing socket closure on error paths via `NUR_TRY_GOTO`
+- Semantic network error mapping (`WSA*` / `errno` -> `nur_error_t`)
+- Clean lifecycle management for long-lived network resources
+
+### 06_http_client.c
+**Purpose**: Wire-format HTTP 1.1 request serializer and response decoder  
+**Compile**: `gcc -std=c11 -Wall -Wextra -Wpedantic -I../../src real-world/06_http_client.c -o http_client`  
+**Demonstrates**:
+- Fixed-buffer HTTP request construction with overflow protection (`NUR_E_OVERFLOW`)
+- Zero-allocation HTTP status line, header, and body parsing
+- Protocol validation (`NUR_E_PROTOCOL`, `NUR_E_TRUNCATED`, `NUR_E_FORMAT`)
+- Handling payload length validation against `Content-Length`
+
+### 07_thread_safe_logging.c
+**Purpose**: Thread-safe structured logging and RFC 8259 JSON serialization  
+**Compile**: `gcc -std=c11 -Wall -Wextra -Wpedantic -I../../src real-world/07_thread_safe_logging.c -o thread_safe_logging`  
+**Demonstrates**:
+- Mutex-guarded multi-worker error collection without heap allocation
+- Machine-readable RFC 8259 JSON error formatting via `nur_error_json`
+- Human-readable error diagnostics via `nur_error_format`
+- Seamless integration with centralized logging pipelines (Splunk, Datadog, ELK)
+
+### 08_embedded_sensor.c
+**Purpose**: Embedded microcontroller / bare-metal hardware sensor driver  
+**Compile**: `gcc -std=c11 -Wall -Wextra -Wpedantic -I../../src real-world/08_embedded_sensor.c -o embedded_sensor`  
+**Demonstrates**:
+- Stack-only, zero-heap memory profile ideal for microcontrollers and firmware
+- CRC-8 checksum verification for bus integrity (`NUR_E_CHECKSUM`)
+- Hardware timeout detection (`NUR_E_TIMEOUT`)
+- Physical sensor value bounds checking (`NUR_E_OUT_OF_RANGE`)
+
 ## Design Principles
 
 All examples follow nur.h's core design principles:

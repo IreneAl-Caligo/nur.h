@@ -525,6 +525,49 @@ static int test_assert_helpers(void) {
     return 1;
 }
 
+/* Test ergonomic helpers */
+static int test_ergonomic_helpers(void) {
+    /* 1. NUR_OR_ELSE */
+    NurResult_i32 r_ok = NUR_OK(i32, 42);
+    NurResult_i32 r_err = NUR_ERR(i32, NUR_ERROR(NUR_E_NOT_FOUND, "missing"));
+    if (NUR_OR_ELSE(r_ok, 10) != 42) return 0;
+    if (NUR_OR_ELSE(r_err, 10) != 10) return 0;
+
+    /* 2. NUR_IF_ERR */
+    int if_err_triggered = 0;
+    NUR_IF_ERR(r_err, err, {
+        if (err.code == NUR_E_NOT_FOUND) if_err_triggered = 1;
+    });
+    if (!if_err_triggered) return 0;
+
+    /* 3. NUR_VOID_IF_ERR & NUR_VOID_ERROR_OF */
+    NurResult_void v_err = nur_err_void(NUR_ERROR(NUR_E_BUSY, "busy"));
+    if (NUR_VOID_ERROR_OF(v_err).code != NUR_E_BUSY) return 0;
+    int void_if_err_triggered = 0;
+    NUR_VOID_IF_ERR(v_err, v_e, {
+        if (v_e.code == NUR_E_BUSY) void_if_err_triggered = 1;
+    });
+    if (!void_if_err_triggered) return 0;
+
+    /* 4. NUR_MATCH_AS */
+    int match_ok_val = 0;
+    NUR_MATCH_AS(int, r_ok, v, { match_ok_val = v; }, err, { (void)err; return 0; });
+    if (match_ok_val != 42) return 0;
+
+    int match_err_code = 0;
+    NUR_MATCH_AS(int, r_err, v, { (void)v; return 0; }, err, { match_err_code = (int)err.code; });
+    if (match_err_code != NUR_E_NOT_FOUND) return 0;
+
+#if defined(NUR_GNU_EXTENSIONS) || defined(NUR_C23)
+    /* 5. NUR_MATCH */
+    int match_val = 0;
+    NUR_MATCH(r_ok, val, { match_val = val; }, err, { (void)err; return 0; });
+    if (match_val != 42) return 0;
+#endif
+
+    return 1;
+}
+
 int main(void) {
     printf("=== nur.h Library Test Suite ===\n\n");
     
@@ -556,6 +599,7 @@ int main(void) {
     TEST(panic_handler);
     TEST(void_result_flat_layout);
     TEST(assert_helpers);
+    TEST(ergonomic_helpers);
     
     printf("\n=== Test Results ===\n");
     printf("Tests run: %d\n", tests_run);

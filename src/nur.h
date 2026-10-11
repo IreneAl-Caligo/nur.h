@@ -34,10 +34,10 @@ extern "C" {
  * VERSION INFORMATION
  *===========================================================================*/
 #define NUR_VERSION_MAJOR 1
-#define NUR_VERSION_MINOR 0  
+#define NUR_VERSION_MINOR 1
 #define NUR_VERSION_PATCH 0
-#define NUR_VERSION_STRING "1.0.0"
-#define NUR_VERSION_NUMBER 10000
+#define NUR_VERSION_STRING "1.1.0"
+#define NUR_VERSION_NUMBER 10100
 
 /*============================================================================
  * STANDARD DETECTION
@@ -479,7 +479,7 @@ NUR_RESULT_TYPE(void *, ptr);
  */
 typedef struct NUR_NODISCARD_TYPE NurResult_void {
     bool ok;
-#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11) || defined(NUR_GNU_EXTENSIONS) || defined(_MSC_VER)
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11) || (defined(_MSC_VER) && !defined(__GNUC__) && !defined(__clang__))
     union {
         nur_error_t error;
         struct {
@@ -490,6 +490,8 @@ typedef struct NUR_NODISCARD_TYPE NurResult_void {
     nur_error_t error;
 #endif
 } NurResult_void;
+
+#define NUR_VOID_ERROR_OF(r) ((r).error)
 
 /**
  * Create a successful void result. (Freestanding-safe: no memset needed)
@@ -1150,6 +1152,73 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 
 #endif
 
+/* Semantic alias for NUR_UNWRAP_OR */
+#define NUR_OR_ELSE(r, fallback) NUR_UNWRAP_OR((r), (fallback))
+
+/**
+ * Branch on error and bind error struct into err_var.
+ *
+ * Usage:
+ *   NUR_IF_ERR(res, err, {
+ *       nur_error_eprint(&err);
+ *   });
+ */
+#define NUR_IF_ERR(r, err_var, body) \
+    do { \
+        if (NUR_UNLIKELY(!NUR_IS_OK(r))) { \
+            nur_error_t err_var = NUR_ERROR_OF(r); \
+            body; \
+        } \
+    } while (0)
+
+/**
+ * Branch on error for void result and bind error struct into err_var.
+ */
+#define NUR_VOID_IF_ERR(r, err_var, body) \
+    do { \
+        if (NUR_UNLIKELY(!NUR_IS_OK(r))) { \
+            nur_error_t err_var = NUR_VOID_ERROR_OF(r); \
+            body; \
+        } \
+    } while (0)
+
+/**
+ * Pattern match style construct for typed results with explicit type (C99 compatible).
+ *
+ * Usage:
+ *   NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_eprint(&err); });
+ */
+#define NUR_MATCH_AS(Type, r, val_var, ok_body, err_var, err_body) \
+    do { \
+        if (NUR_IS_OK(r)) { \
+            Type val_var = NUR_VALUE(r); \
+            ok_body; \
+        } else { \
+            nur_error_t err_var = NUR_ERROR_OF(r); \
+            err_body; \
+        } \
+    } while (0)
+
+#if defined(NUR_GNU_EXTENSIONS) || defined(NUR_C23)
+/**
+ * Type-inferring pattern match construct (GNU/C23).
+ *
+ * Usage:
+ *   NUR_MATCH(res, val, { printf("Val: %d\n", val); }, err, { nur_error_eprint(&err); });
+ */
+#define NUR_MATCH(r, val_var, ok_body, err_var, err_body) \
+    do { \
+        __auto_type _nur_m_ = (r); \
+        if (NUR_IS_OK(_nur_m_)) { \
+            __auto_type val_var = _nur_m_.u.value; \
+            ok_body; \
+        } else { \
+            nur_error_t err_var = _nur_m_.u.error; \
+            err_body; \
+        } \
+    } while (0)
+#endif
+
 /*============================================================================
  * ERROR PROPAGATION
  *===========================================================================*/
@@ -1528,6 +1597,38 @@ NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
         if (NUR_UNLIKELY(NUR_IS_OK(r) || NUR_ERROR_OF(r).code != (expected_code))) { \
             fprintf(stderr, "NUR_ASSERT_ERR failed at %s:%u (expected code %d)\n", \
                     NUR_LOC_FILE ? NUR_LOC_FILE : "<unknown>", NUR_LOC_LINE, (int)(expected_code)); \
+            abort(); \
+        } \
+    } while (0)
+
+/**
+ * Asserts that result is Ok, printing full error details to stderr before aborting.
+ *
+ * Usage:
+ *   NUR_REQUIRE_OK(res);
+ */
+#define NUR_REQUIRE_OK(r) \
+    do { \
+        if (NUR_UNLIKELY(!NUR_IS_OK(r))) { \
+            fprintf(stderr, "NUR_REQUIRE_OK failed at %s:%u\n", \
+                    NUR_LOC_FILE ? NUR_LOC_FILE : "<unknown>", NUR_LOC_LINE); \
+            nur_error_eprint(&NUR_ERROR_OF(r)); \
+            abort(); \
+        } \
+    } while (0)
+
+/**
+ * Asserts that result is Ok with custom failure message, printing full error details before aborting.
+ *
+ * Usage:
+ *   NUR_REQUIRE_OK_MSG(res, "Configuration loading failed");
+ */
+#define NUR_REQUIRE_OK_MSG(r, msg) \
+    do { \
+        if (NUR_UNLIKELY(!NUR_IS_OK(r))) { \
+            fprintf(stderr, "NUR_REQUIRE_OK failed: %s at %s:%u\n", \
+                    (msg), NUR_LOC_FILE ? NUR_LOC_FILE : "<unknown>", NUR_LOC_LINE); \
+            nur_error_eprint(&NUR_ERROR_OF(r)); \
             abort(); \
         } \
     } while (0)

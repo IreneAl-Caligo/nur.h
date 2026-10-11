@@ -5,6 +5,31 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-12
+
+### Fixed
+- Fixed C99 `-Wpedantic` unnamed struct/union warning in `NurResult_void`, achieving 100% warning-free compilation under `-Wall -Wextra -Wpedantic` across ISO C99, C11, C17, and C23.
+
+### Added
+- Ergonomic macros: `NUR_REQUIRE_OK`, `NUR_REQUIRE_OK_MSG`, `NUR_IF_ERR`, `NUR_VOID_IF_ERR`, `NUR_MATCH_AS`, `NUR_MATCH`, `NUR_OR_ELSE`, `NUR_VOID_ERROR_OF`.
+- Production-grade real-world examples:
+  - `examples/real-world/03_cli_arg_parser.c`: Zero-allocation CLI argument parsing with port validation.
+  - `examples/real-world/04_json_parser.c`: Streaming zero-allocation JSON tokenizer & parser.
+  - `examples/real-world/05_socket_server.c`: Cross-platform TCP socket server with leak-free `NUR_TRY_GOTO`.
+  - `examples/real-world/06_http_client.c`: Wire-format HTTP 1.1 request serializer & response parser.
+  - `examples/real-world/07_thread_safe_logging.c`: Thread-safe structured logging with RFC 8259 JSON serialization.
+  - `examples/real-world/08_embedded_sensor.c`: Microcontroller / bare-metal hardware sensor driver with CRC-8 validation.
+- Migration guide: `docs/MIGRATION.md` for refactoring legacy C (`errno`, `NULL`, sentinel returns).
+- AI / LLM Safe Guidelines: `docs/AI_GUIDELINES.md` with usage contract and refactoring prompt pack.
+- Machine-readable error taxonomy: `docs/ERROR_TAXONOMY.md` and `docs/errors.json`.
+- Latency and zero-allocation performance documentation: `docs/BENCHMARKS.md`.
+- Comprehensive packaging guide: `docs/PACKAGING.md` (CMake, pkg-config, Meson, vcpkg, Conan).
+- Automated migration helper script: `scripts/wrap_legacy_c.py`.
+- Modern CMake packaging with `nurConfig.cmake.in` and version compatibility checks.
+- Native Meson build support (`meson.build`, `meson_options.txt`).
+- Hardened GitHub Actions CI (`.github/workflows/ci.yml`) covering all standards, MSVC, sanitizers (ASan + UBSan), and static analysis.
+- Project roadmap and governance: `ROADMAP.md`.
+
 ## [1.0.0] - 2026-10-11
 
 ### Added

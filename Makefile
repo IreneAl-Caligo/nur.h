@@ -286,6 +286,29 @@ version:
 	@echo "nur.h version: $$(cat VERSION)"
 	@echo "Header version: $$(grep 'NUR_VERSION_STRING' $(HEADER) | cut -d'"' -f2)"
 
+# Build and check all examples
+.PHONY: examples
+examples:
+	@echo "Validating all examples..."
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/basic/01_hello_result.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/basic/02_error_codes.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/basic/03_option_types.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/basic/04_custom_types.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/basic/05_error_context.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/advanced/01_error_propagation.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/advanced/02_file_io.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/advanced/03_allocation.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/advanced/04_parsing.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/01_config_parser.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/02_string_processing.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/03_cli_arg_parser.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/04_json_parser.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/05_socket_server.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/06_http_client.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/07_thread_safe_logging.c
+	$(CC) $(CFLAGS_BASE) -fsyntax-only examples/real-world/08_embedded_sensor.c
+	@echo "All 17 examples passed syntax and type checks!"
+
 # Help target
 .PHONY: help
 help:

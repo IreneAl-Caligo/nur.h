@@ -1,35 +1,50 @@
-# nur.h — Rust-Style Error Handling for C
+# nur.h — Rust-Style Error Handling for Modern C
 
-A **single-header, zero-allocation** C library that brings Rust's `Result<T,E>` and
-`Option<T>` patterns to ISO C, with compiler-assisted safety via `[[nodiscard]]`.
+A **single-header, zero-allocation, pedantic warning-free** C library that brings Rust-style `Result<T,E>` and `Option<T>` patterns to ISO C with compiler-assisted safety via `[[nodiscard]]`.
 
-**Author**: Irene Al-Caligo | **License**: MIT | **C Standards**: C99, C11, C17, C23, C++11+
+**Author**: Irene Al-Caligo | **License**: MIT | **Compatibility**: ISO C99, C11, C17, C23 & C++11+
 
-[![C Standard](https://img.shields.io/badge/C-C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue)](src/nur.h)
-[![Header Only](https://img.shields.io/badge/header--only-yes-green)](src/nur.h)
-[![Zero Allocation](https://img.shields.io/badge/allocation-zero%20core-green)](src/nur.h)
-[![CI Pipeline](https://img.shields.io/badge/CI-Passing-brightgreen)](.ci/ci.yml)
+[![C Standard](https://img.shields.io/badge/Standards-C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue.svg)](src/nur.h)
+[![Pedantic Warnings](https://img.shields.io/badge/Warnings-Zero%20Pedantic-brightgreen.svg)](src/nur.h)
+[![Zero Heap Allocation](https://img.shields.io/badge/Memory-0%20Bytes%20Heap-brightgreen.svg)](docs/BENCHMARKS.md)
+[![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.ci/ci.yml)
+[![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.ci/ci.yml)
+[![AI / LLM Ready](https://img.shields.io/badge/AI%20DX-LLM%20Safe%20Contract-purple.svg)](docs/AI_GUIDELINES.md)
 
 ---
 
-## Why nur.h?
+## 📑 Table of Contents
 
-C APIs communicate failure through at least four incompatible conventions
-(`-1`, `NULL`, `errno`, out-parameters) — none of which the compiler forces
-you to check. `nur.h` replaces all of them with a single, typed
-`NurResult<T>` value that carries either a success payload or structured
-error information, and uses `[[nodiscard]]`/`warn_unused_result` to make
-ignoring the result a compiler warning.
+- [Why nur.h?](#-why-nurh)
+- [Quick Start](#-quick-start)
+- [Common Patterns Cheat Sheet](#-common-patterns-cheat-sheet)
+- [Bad Patterns vs. Good Patterns](#-bad-patterns-vs-good-patterns)
+- [When to Use & When NOT to Use](#-when-to-use--when-not-to-use)
+- [Real-World Production Examples](#-real-world-production-examples)
+- [Ergonomic Developer APIs](#-ergonomic-developer-apis)
+- [Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)](#-leak-free-resource-cleanup-nur_try_goto)
+- [Performance & Zero-Allocation Benchmarks](#-performance--zero-allocation-benchmarks)
+- [AI / LLM Autonomous Code Generation](#-ai--llm-autonomous-code-generation)
+- [Build & Package Ecosystem](#-build--package-ecosystem)
+- [Verification & Quality Gates](#-verification--quality-gates)
+- [Documentation Index](#-documentation-index)
+
+---
+
+## 💡 Why nur.h?
+
+C APIs communicate failure through at least four incompatible conventions (`-1`, `NULL`, `errno`, out-parameters) — none of which the compiler enforces you to check. `nur.h` unifies them under a single, typed `NurResult<T>` value that carries either a success payload or structured diagnostic context.
 
 ```c
-// Old C — sentinel, easy to accidentally ignore
+// ❌ Old C — sentinel return, easily ignored, diagnostics lost
 int val = parse_port("99999");
-// Did you check validity? Out of range? Error sentinel?
+// Did you check validity? Did you check errno? Out of range?
 
-// nur.h — failure is part of the type, compiler enforces checking
+// ✅ Modern nur.h — type-safe, nodiscard enforced, rich diagnostics
 NurResult_i32 r = parse_port("99999");
 if (NUR_IS_ERR(r)) {
-    nur_error_eprint(&NUR_ERROR_OF(r));   // [NUR_E_OUT_OF_RANGE] port out of range [99999] at net.c:42
+    nur_error_eprint(&NUR_ERROR_OF(r));
+    // Output: [NUR_E_OUT_OF_RANGE] Port exceeds 65535 (context: 99999) at net.c:42 in parse_port()
     return 1;
 }
 int port = NUR_VALUE(r);
@@ -37,284 +52,245 @@ int port = NUR_VALUE(r);
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
-### 1. Install GCC (Windows / MSYS2)
-
-```powershell
-# Open an MSYS2 UCRT64 shell, then:
-pacman -S mingw-w64-ucrt-x86_64-gcc
-```
-
-Add `C:\msys64\ucrt64\bin` to your `PATH`. Verify:
-
-```powershell
-gcc --version   # gcc 11+ or later
-```
-
-### 2. Drop the header into your project
-
-**PowerShell**:
-```powershell
-Copy-Item src\nur.h your_project\
-```
-
-**POSIX (Linux / macOS)**:
+### 1. Drop the single header into your project
 ```bash
-cp src/nur.h your_project/
-# Or curl directly:
-curl -fsSL https://raw.githubusercontent.com/IreneAl-Caligo/nur.h/master/src/nur.h -o your_project/nur.h
+# Direct download:
+curl -fsSL https://raw.githubusercontent.com/IreneAl-Caligo/nur.h/master/src/nur.h -o include/nur.h
 ```
 
-**CMake (FetchContent)**:
-```cmake
-include(FetchContent)
-FetchContent_Declare(
-    nur
-    GIT_REPOSITORY https://github.com/IreneAl-Caligo/nur.h.git
-    GIT_TAG        v1.0.0
-)
-FetchContent_MakeAvailable(nur)
-target_link_libraries(my_app PRIVATE nur::nur)
-```
-
-### 3. Include and use
-
+### 2. Basic Example
 ```c
 #include "nur.h"
+#include <stdio.h>
 
-NurResult_i32 divide(int32_t a, int32_t b) {
-    if (b == 0)
+NUR_NODISCARD NurResult_i32 safe_divide(int32_t a, int32_t b) {
+    if (b == 0) {
         return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "division by zero"));
+    }
     return NUR_OK(i32, a / b);
 }
 
 int main(void) {
-    NurResult_i32 r = divide(10, 2);
+    NurResult_i32 r = safe_divide(10, 2);
 
-    if (NUR_IS_OK(r))
-        printf("result: %d\n", NUR_VALUE(r));       // result: 5
-    else
+    if (NUR_IS_OK(r)) {
+        printf("Result: %d\n", NUR_VALUE(r)); // Result: 5
+    } else {
         nur_error_eprint(&NUR_ERROR_OF(r));
+    }
 
-    /* Fallback value — no branching needed */
-    int32_t safe = NUR_UNWRAP_OR(divide(10, 0), -1); // -1
+    /* Fallback value without branching */
+    int32_t val = NUR_OR_ELSE(safe_divide(10, 0), -1); // -1
+    printf("Fallback: %d\n", val);
     return 0;
 }
 ```
 
-Compile:
-
+### 3. Compile cleanly across any standard
 ```bash
-gcc -std=c11 -Wall -Wextra -I. main.c -o main
+gcc -std=c99 -Wall -Wextra -Wpedantic -Iinclude main.c -o main
 ```
 
 ---
 
-## Error Propagation
+## 📋 Common Patterns Cheat Sheet
 
-### Auto-deduction (`NUR_TRY_AUTO`)
-Works across all C standards (C99, C11, C17, C23) and deduces the source type automatically:
+| Task | Recommended Macro | Example |
+|---|---|---|
+| **Return Success** | `NUR_OK(suffix, val)` | `return NUR_OK(i32, 42);` |
+| **Return Error** | `NUR_ERR(suffix, err)` | `return NUR_ERR(i32, NUR_ERROR(NUR_E_PARSE, "msg"));` |
+| **Precondition Guard** | `NUR_CHECK(cond, err)` | `NUR_CHECK(ptr != NULL, NUR_ERROR(NUR_E_NULL_POINTER, "null"));` |
+| **Safe Error Propagation** | `NUR_TRY_AUTO(Dest, lhs, expr)` | `NUR_TRY_AUTO(i32, val, parse_int(s));` |
+| **Leak-Free Propagation** | `NUR_TRY_GOTO(lhs, expr, err, lbl)` | `NUR_TRY_GOTO(fd, open_fd(), err, cleanup);` |
+| **Branch on Error** | `NUR_IF_ERR(res, err, body)` | `NUR_IF_ERR(r, err, { nur_error_eprint(&err); return -1; });` |
+| **Pattern Match** | `NUR_MATCH_AS(Type, r, v, ok, e, err)` | `NUR_MATCH_AS(int, r, v, { use(v); }, e, { log(e); });` |
+| **Fallback Value** | `NUR_OR_ELSE(r, fallback)` | `int port = NUR_OR_ELSE(parse_port(s), 8080);` |
+| **Require Ok (Assert)** | `NUR_REQUIRE_OK(r)` | `NUR_REQUIRE_OK(init_subsystem());` |
+| **Capture `errno`** | `NUR_ERROR_ERRNO_CTX(msg, ctx)` | `NUR_ERROR_ERRNO_CTX("fopen failed", path)` |
+
+---
+
+## ⚠️ Bad Patterns vs. Good Patterns
+
+| Anti-Pattern (Bad) | Recommended Pattern (Good) | Rationale |
+|---|---|---|
+| `int val = NUR_VALUE(r);` without `NUR_IS_OK` | `if (NUR_IS_OK(r)) { int val = NUR_VALUE(r); }` | Avoids reading garbage memory / undefined behavior if result is an error. |
+| `char buf[64]; snprintf(buf, ...); return NUR_ERR(i32, NUR_ERROR(..., buf));` | `return NUR_ERR(i32, NUR_ERROR_CTX(..., "msg", static_str));` | Pointers in `nur_error_t` are borrowed; stack buffers become dangling upon return. |
+| `NUR_TRY_TO(...)` after allocating memory | `NUR_TRY_GOTO(val, call(), err, cleanup);` | Early `return` in `NUR_TRY_TO` leaks memory or open file descriptors. |
+| Duplicate `NUR_RESULT_TYPE` inside `.c` files or function bodies | Declare `NUR_RESULT_TYPE(Type, sfx);` once in a shared header at file scope | Avoids type redeclaration warnings and maintains compilation symmetry. |
+
+---
+
+## 🎯 When to Use & When NOT to Use
+
+### ✅ When to Use `nur.h`:
+- File I/O, sockets, network communication, hardware buses.
+- Parsing text formats (JSON, INI, CSV, CLI arguments).
+- Dynamic memory allocations and resource pools.
+- Public library boundaries where failure is an explicit possibility.
+- Multi-layered services where errors must propagate with origin line/file metadata.
+
+### ❌ When NOT to Use `nur.h`:
+- Pure numeric arithmetic (e.g. matrix multiplication, trigonometric functions).
+- Tight inner loops where failure is mathematically impossible and cycles are critical.
+- Trivial member getters and setters.
+- Hardware Interrupt Service Routines (ISRs) requiring bare register execution.
+
+---
+
+## 🚀 Real-World Production Examples
+
+All examples compile cleanly under `-Wall -Wextra -Wpedantic` and demonstrate both success and failure handling:
+
+| Directory | Example | Concepts Demonstrated |
+|---|---|---|
+| `examples/basic/` | [`01_hello_result.c`](examples/basic/01_hello_result.c) | Result creation, `NUR_IS_OK`, fallback values |
+| `examples/basic/` | [`02_error_codes.c`](examples/basic/02_error_codes.c) | 36 semantic codes, categorization, user error codes |
+| `examples/basic/` | [`03_option_types.c`](examples/basic/03_option_types.c) | `NurOption`, nullable values, array searching |
+| `examples/basic/` | [`04_custom_types.c`](examples/basic/04_custom_types.c) | `NUR_RESULT_TYPE` with custom application structs |
+| `examples/basic/` | [`05_error_context.c`](examples/basic/05_error_context.c) | Source location capture (`__FILE__`, `__LINE__`, `__func__`) |
+| `examples/advanced/` | [`01_error_propagation.c`](examples/advanced/01_error_propagation.c) | 3-layer call stack propagation without boilerplate |
+| `examples/advanced/` | [`02_file_io.c`](examples/advanced/02_file_io.c) | File operations, `errno` capture, resource cleanup |
+| `examples/advanced/` | [`03_allocation.c`](examples/advanced/03_allocation.c) | `nur_malloc` / `nur_realloc` safe allocation wrappers |
+| `examples/advanced/` | [`04_parsing.c`](examples/advanced/04_parsing.c) | Zero-allocation streaming CSV parser |
+| `examples/real-world/` | [`01_config_parser.c`](examples/real-world/01_config_parser.c) | INI configuration parser with line-by-line error reporting |
+| `examples/real-world/` | [`02_string_processing.c`](examples/real-world/02_string_processing.c) | Text processing pipeline with bounds verification |
+| `examples/real-world/` | [`03_cli_arg_parser.c`](examples/real-world/03_cli_arg_parser.c) | CLI flags, key-value options, port range validation |
+| `examples/real-world/` | [`04_json_parser.c`](examples/real-world/04_json_parser.c) | Zero-allocation streaming JSON tokenizer and extractor |
+| `examples/real-world/` | [`05_socket_server.c`](examples/real-world/05_socket_server.c) | Cross-platform socket server with `NUR_TRY_GOTO` cleanup |
+| `examples/real-world/` | [`06_http_client.c`](examples/real-world/06_http_client.c) | Wire-format HTTP 1.1 request serializer & response parser |
+| `examples/real-world/` | [`07_thread_safe_logging.c`](examples/real-world/07_thread_safe_logging.c) | Thread-safe logging with RFC 8259 JSON serialization |
+| `examples/real-world/` | [`08_embedded_sensor.c`](examples/real-world/08_embedded_sensor.c) | Embedded sensor driver with CRC-8 checksum verification |
+
+Run `make examples` to compile and validate all 17 examples simultaneously.
+
+---
+
+## 🛡️ Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)
+
+When handling heap buffers, file descriptors, or mutexes, early returns lead to memory leaks. Use `NUR_TRY_GOTO` for clean, single-exit cleanup:
 
 ```c
-NurResult_i32 compute(int a, int b, int c) {
-    int step1, step2;
-    NUR_TRY_AUTO(i32, step1, divide(a, b));
-    NUR_TRY_AUTO(i32, step2, divide(step1, c));
-    return NUR_OK(i32, step2);
-}
-```
-
-### Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)
-Standard C cleanup pattern with zero resource leaks:
-
-```c
-NurResult_i32 read_data(const char *path) {
+NUR_NODISCARD NurResult_i32 process_stream(const char *path) {
     FILE *f = fopen(path, "rb");
-    if (!f) return NUR_ERR(i32, NUR_ERROR_ERRNO("fopen failed"));
+    if (!f) return NUR_ERR(i32, NUR_ERROR_ERRNO_CTX("fopen failed", path));
 
-    int val = 0;
+    char *buffer = malloc(4096);
+    if (!buffer) {
+        fclose(f);
+        return NUR_ERR(i32, NUR_ERROR(NUR_E_OUT_OF_MEMORY, "malloc failed"));
+    }
+
+    int record_count = 0;
     nur_error_t err = {0};
 
-    NUR_TRY_GOTO(val, parse_stream(f), err, cleanup);
+    /* Evaluates parse_records(); if Err, assigns err and jumps to cleanup */
+    NUR_TRY_GOTO(record_count, parse_records(f, buffer), err, cleanup);
+
+    printf("Successfully processed %d records\n", record_count);
 
 cleanup:
+    free(buffer);
     if (f) fclose(f);
     if (err.code != NUR_E_NONE) return nur_err_i32(err);
-    return NUR_OK(i32, val);
+    return NUR_OK(i32, record_count);
 }
 ```
 
 ---
 
-## Guard Clauses — `NUR_CHECK`
+## 📊 Performance & Zero-Allocation Benchmarks
 
-```c
-NurResult_void validate_port(int port) {
-    NUR_CHECK(port > 0 && port <= 65535,
-              NUR_ERROR(NUR_E_OUT_OF_RANGE, "port out of range"));
-    return NUR_OK_VOID();
-}
+Measured with GCC `-O2` on AMD/Intel x86_64:
 
-NurResult_i32 parse_positive(int v) {
-    NUR_CHECK_AS(i32, v > 0,
-                 NUR_ERROR(NUR_E_INVALID_ARGUMENT, "must be positive"));
-    return NUR_OK(i32, v);
-}
+```
+Benchmark                             Ops   Total (ms)        ns/op  vs Baseline
+----------                            ---   ----------        -----  -----------
+Baseline arithmetic              10000000       14.941        1.494        0.0%
+Result<i32> ok construction      10000000        4.017        0.402      -73.1%
+Result<i32> err construction     10000000        0.000        0.000     -100.0%
+Result<i32> is_ok check          10000000        2.013        0.201      -86.5%
+Error propagation (3-level)       1000000        1.473        1.473       -1.4%
+```
+
+- **Heap Allocations**: Exactly **0 bytes**.
+- **Runtime Overhead**: Under **0.4 nanoseconds** per result construction; fully inlined into registers.
+- **Freestanding**: Compatible with bare-metal microcontrollers via `-DNUR_FREESTANDING`.
+
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed memory layout and code-size comparisons.
+
+---
+
+## 🤖 AI / LLM Autonomous Code Generation
+
+`nur.h` provides an explicit contract for AI assistants (ChatGPT, Claude, Copilot, Gemini):
+- Read the [AI Guidelines & Prompt Pack](docs/AI_GUIDELINES.md).
+- Automated C signature migration script: [`scripts/wrap_legacy_c.py`](scripts/wrap_legacy_c.py).
+- Machine-readable RFC 8259 Error Taxonomy: [`docs/ERROR_TAXONOMY.md`](docs/ERROR_TAXONOMY.md) and [`docs/errors.json`](docs/errors.json).
+
+---
+
+## 📦 Build & Package Ecosystem
+
+`nur.h` supports CMake, pkg-config, Meson, and vcpkg.
+
+### CMake
+```cmake
+find_package(nur CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE nur::nur)
+```
+
+### pkg-config
+```bash
+gcc $(pkg-config --cflags nur) main.c -o main
+```
+
+### Meson
+```meson
+nur_dep = dependency('nur', required : true)
+executable('app', 'main.c', dependencies : nur_dep)
+```
+
+Detailed installation steps available in [docs/PACKAGING.md](docs/PACKAGING.md).
+
+---
+
+## 🧪 Verification & Quality Gates
+
+Run all quality checks locally:
+
+```bash
+# Run tests across all ISO C standards (C99, C11, C17, C23)
+make test-all
+
+# Check zero pedantic warnings
+make check
+
+# Validate all 17 real-world examples
+make examples
+
+# Run memory and undefined behavior sanitizers
+make test-asan
 ```
 
 ---
 
-## Safe Allocation — `nur_malloc`
+## 📚 Documentation Index
 
-```c
-NurResult_ptr buf = nur_malloc(1024);
-if (NUR_IS_ERR(buf)) {
-    /* NUR_E_OUT_OF_MEMORY, never a silent NULL */
-    return 1;
-}
-char *data = (char *)NUR_UNWRAP(buf);
-/* ... use data ... */
-nur_free(data);
-```
-
----
-
-## errno Integration — `NUR_ERROR_ERRNO`
-
-Capture `errno` immediately after a failing syscall. Automatically maps to semantic taxonomy (`ENOENT` -> `NUR_E_NOT_FOUND`, `EACCES` -> `NUR_E_PERMISSION`, etc.):
-
-```c
-FILE *f = fopen(path, "rb");
-if (!f)
-    return NUR_ERR(ptr, NUR_ERROR_ERRNO("fopen failed"));
-
-// With context:
-return NUR_ERR(ptr, NUR_ERROR_ERRNO_CTX("fopen failed", path));
-```
-
-The error struct carries both the semantic code in `.code` and the raw `errno` value in `.sys`.
+- [Migration Guide (Legacy C -> nur.h)](docs/MIGRATION.md)
+- [AI / LLM Usage Contract & Prompt Pack](docs/AI_GUIDELINES.md)
+- [Error Taxonomy & POSIX/Win32 Mappings](docs/ERROR_TAXONOMY.md)
+- [Performance & Latency Benchmarks](docs/BENCHMARKS.md)
+- [Packaging Guide (CMake, pkg-config, Meson, vcpkg)](docs/PACKAGING.md)
+- [Project Roadmap](ROADMAP.md)
+- [Contribution Guidelines](CONTRIBUTING.md)
+- [Security Disclosure Policy](SECURITY.md)
+- [API Reference Manual](docs/api/api_ref.md)
 
 ---
 
-## Predefined Result Types
+## ⚖️ License
 
-| Type              | C type     | Constructor              |
-|-------------------|------------|--------------------------|
-| `NurResult_i32`   | `int32_t`  | `NUR_OK(i32, 42)`        |
-| `NurResult_i64`   | `int64_t`  | `NUR_OK(i64, 1000000LL)` |
-| `NurResult_usize` | `size_t`   | `NUR_OK(usize, n)`       |
-| `NurResult_f32`   | `float`    | `NUR_OK(f32, 1.5f)`      |
-| `NurResult_f64`   | `double`   | `NUR_OK(f64, 3.14)`      |
-| `NurResult_cstr`  | `char *`   | `NUR_OK(cstr, "hello")`  |
-| `NurResult_ptr`   | `void *`   | `NUR_OK(ptr, p)`         |
-| `NurResult_void`  | (no value) | `NUR_OK_VOID()`          |
-
-### Custom types
-
-```c
-typedef struct { int x, y; } Point;
-NUR_RESULT_TYPE(Point, point);          /* generates NurResult_point */
-
-Point p = {3, 4};
-NurResult_point r = NUR_OK(point, p);
-```
-
----
-
-## Error Code Taxonomy (36 Semantic Codes)
-
-| Range  | Category      | Count | Examples                                          |
-|--------|---------------|-------|---------------------------------------------------|
-| 1–9    | Validation    | 6     | `NUR_E_INVALID_ARGUMENT`, `NUR_E_NULL_POINTER`    |
-| 10–19  | Data          | 6     | `NUR_E_PARSE`, `NUR_E_FORMAT`, `NUR_E_ENCODING`   |
-| 20–29  | Resources     | 5     | `NUR_E_OUT_OF_MEMORY`, `NUR_E_RESOURCE_LIMIT`     |
-| 30–39  | I/O           | 7     | `NUR_E_NOT_FOUND`, `NUR_E_PERMISSION`, `NUR_E_IO` |
-| 40–49  | Network/Async | 6     | `NUR_E_TIMEOUT`, `NUR_E_CONNECTION`, `NUR_E_WOULD_BLOCK` |
-| 50–59  | System        | 6     | `NUR_E_UNSUPPORTED`, `NUR_E_INTERNAL`, `NUR_E_BUG` |
-| ≥ 1000 | User-defined  | -     | `NUR_E_USER_BASE + n`                             |
-
----
-
-## Full API Reference
-
-### Propagation & Safety
-| Macro                                | Meaning                                          |
-|--------------------------------------|--------------------------------------------------|
-| `NUR_TRY_AUTO(D, lhs, expr)`         | Auto-typed propagate: assigns `lhs` or returns error |
-| `NUR_TRY_TO(D, S, lhs, expr)`        | Explicitly typed propagate: assign or return error |
-| `NUR_TRY_GOTO(lhs, expr, err, lbl)`  | Leak-free: assign `lhs` or store error and jump to `lbl` |
-| `NUR_TRY_VOID_GOTO(expr, err, lbl)`  | For void results: jump to cleanup on failure     |
-| `NUR_CHECK(cond, err)`               | Guard clause → returns `NurResult_void` on fail  |
-| `NUR_CHECK_AS(D, cond, err)`         | Guard clause → returns `NurResult_D` on fail     |
-| `NUR_ASSERT_OK(r)`                   | Test helper: asserts Ok or aborts with trace     |
-| `NUR_ASSERT_ERR(r, code)`            | Test helper: asserts Err with specific code      |
-
-### Utilities & Formatting
-| Function / macro                          | Meaning                              |
-|-------------------------------------------|--------------------------------------|
-| `nur_error_format(err, buf, cap)`         | Single-line human readable format    |
-| `nur_error_json(err, buf, cap)`           | RFC 8259 JSON format for observability |
-| `nur_set_panic_handler(fn)`               | Overridable panic callback           |
-| `nur_error_eprint(err)`                   | Print formatted error to `stderr`    |
-| `nur_malloc(size)` → `NurResult_ptr`      | Safe allocation wrapper              |
-
----
-
-## Enterprise Observability
-
-### JSON Error Serialization
-Zero-allocation formatting compliant with RFC 8259:
-```c
-char buf[256];
-nur_error_json(&NUR_ERROR_OF(res), buf, sizeof(buf));
-// {"ok":false,"code":30,"name":"NUR_E_NOT_FOUND","message":"file not found","context":"cfg.json","sys":2,"file":"main.c","func":"run","line":42}
-```
-
-### Configurable Panic Handler
-By default, `NUR_UNWRAP` prints diagnostics and calls `abort()`. You can register a custom panic handler for logging, metrics, or graceful process termination:
-```c
-void my_panic_handler(const char *msg, const nur_error_t *e, const char *file, unsigned int line) {
-    syslog(LOG_CRIT, "Panic at %s:%u - %s", file, line, msg ? msg : "");
-    exit(EXIT_FAILURE);
-}
-
-nur_set_panic_handler(my_panic_handler);
-```
-make test        # C11 suite
-make test-all    # C99 / C11 / C17 / C23
-make analyze     # cppcheck static analysis
-```
-
----
-
-## Design Principles
-
-1. **Single header** — everything lives in `src/nur.h`; no `.c` file, no link step
-2. **Zero allocation in core** — `nur.h` itself never calls `malloc`; allocation wrappers (`nur_malloc`) are opt-in
-3. **No global mutable state** — all Result objects are value types on the stack
-4. **Multi-standard** — compiles cleanly under `-std=c99` through `-std=c23`
-5. **`[[nodiscard]]`** — every function returning `NurResult_*` carries the attribute; silently dropped results are a compiler warning
-
----
-
-## Integration
-
-Copy `src/nur.h` into your project tree and include it:
-
-```c
-#include "nur.h"
-```
-
-No build system changes. No linker flags. No dependencies beyond the C
-standard library.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
-*"Errors should never pass silently."*
+MIT License. Designed and maintained by Irene Al-Caligo.

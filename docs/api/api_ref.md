@@ -231,6 +231,21 @@ Backward-compatibility and POSIX taxonomy alias
 
 ---
 
+### `NUR_IF_ERR`
+
+```c
+#define NUR_IF_ERR(r, err_var, body)
+```
+
+Branch on error and bind error struct into err_var.
+
+Usage:
+NUR_IF_ERR(res, err, {
+nur_error_eprint(&err);
+});
+
+---
+
 ### `NUR_IGNORE`
 
 ```c
@@ -326,6 +341,32 @@ Status checking
 ```c
 #define NUR_LIKELY(x) (x)
 ```
+
+---
+
+### `NUR_MATCH`
+
+```c
+#define NUR_MATCH(r, val_var, ok_body, err_var, err_body)
+```
+
+Type-inferring pattern match construct (GNU/C23).
+
+Usage:
+NUR_MATCH(res, val, { printf("Val: %d\n", val); }, err, { nur_error_eprint(&err); });
+
+---
+
+### `NUR_MATCH_AS`
+
+```c
+#define NUR_MATCH_AS(Type, r, val_var, ok_body, err_var, err_body)
+```
+
+Pattern match style construct for typed results with explicit type (C99 compatible).
+
+Usage:
+NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_eprint(&err); });
 
 ---
 
@@ -553,6 +594,16 @@ Usage: int val = NUR_OPTION_UNWRAP_OR(opt, 0);
 
 ---
 
+### `NUR_OR_ELSE`
+
+```c
+#define NUR_OR_ELSE(r, fallback) NUR_UNWRAP_OR((r), (fallback))
+```
+
+Semantic alias for NUR_UNWRAP_OR
+
+---
+
 ### `NUR_PRINTF_LIKE`
 
 ```c
@@ -574,6 +625,32 @@ Usage: int val = NUR_OPTION_UNWRAP_OR(opt, 0);
 ```c
 #define NUR_PRINT_BUFFER_SIZE 1024
 ```
+
+---
+
+### `NUR_REQUIRE_OK`
+
+```c
+#define NUR_REQUIRE_OK(r)
+```
+
+Asserts that result is Ok, printing full error details to stderr before aborting.
+
+Usage:
+NUR_REQUIRE_OK(res);
+
+---
+
+### `NUR_REQUIRE_OK_MSG`
+
+```c
+#define NUR_REQUIRE_OK_MSG(r, msg)
+```
+
+Asserts that result is Ok with custom failure message, printing full error details before aborting.
+
+Usage:
+NUR_REQUIRE_OK_MSG(res, "Configuration loading failed");
 
 ---
 
@@ -836,7 +913,7 @@ Value access - use only after checking status
 ### `NUR_VERSION_MINOR`
 
 ```c
-#define NUR_VERSION_MINOR 0
+#define NUR_VERSION_MINOR 1
 ```
 
 ---
@@ -844,7 +921,7 @@ Value access - use only after checking status
 ### `NUR_VERSION_NUMBER`
 
 ```c
-#define NUR_VERSION_NUMBER 10000
+#define NUR_VERSION_NUMBER 10100
 ```
 
 ---
@@ -860,8 +937,26 @@ Value access - use only after checking status
 ### `NUR_VERSION_STRING`
 
 ```c
-#define NUR_VERSION_STRING "1.0.0"
+#define NUR_VERSION_STRING "1.1.0"
 ```
+
+---
+
+### `NUR_VOID_ERROR_OF`
+
+```c
+#define NUR_VOID_ERROR_OF(r) ((r).error)
+```
+
+---
+
+### `NUR_VOID_IF_ERR`
+
+```c
+#define NUR_VOID_IF_ERR(r, err_var, body)
+```
+
+Branch on error for void result and bind error struct into err_var.
 
 ---
 
