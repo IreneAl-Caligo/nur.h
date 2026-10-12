@@ -44,6 +44,43 @@ jobs:
           $CC -std=${{ matrix.std }} -Wall -Wextra -Wpedantic -Werror -Isrc test/test_nur.c -o test_runner
           ./test_runner
 
+      - name: Run Complete Test Suites
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_universal_type.c -o test_univ
+          ./test_univ
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_all_features_and_errors.c -o test_all_scenarios
+          ./test_all_scenarios
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_result_helpers.c -o test_res_helpers
+          ./test_res_helpers
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_error_wrap.c -o test_err_wrap
+          ./test_err_wrap
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_ai_contract_examples.c -o test_ai
+          ./test_ai
+
+      - name: Verify Compile-Fail Nodiscard Warning
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          # Compilation of test_compile_fail_nodiscard.c MUST fail when unused result is an error!
+          if $CC -std=c11 -Wall -Wextra -Werror=unused-result -Isrc test/test_compile_fail_nodiscard.c -o test_fail 2>/dev/null; then
+            echo "Expected compile failure for discarded nodiscard return value, but compilation succeeded!"
+            exit 1
+          else
+            echo "Compile-fail test correctly prevented discarding NurResult return value."
+          fi
+
+      - name: Verify Freestanding & Config Matrix
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          # Test freestanding combinations
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDIO -c test/test_all_features_and_errors.c -o test_no_stdio.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDLIB -c test/test_all_features_and_errors.c -o test_no_stdlib.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STRING -c test/test_all_features_and_errors.c -o test_no_string.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_LITE -c test/test_all_features_and_errors.c -o test_lite.o
+
       - name: Verify Examples Syntax
         env:
           CC: ${{ matrix.compiler }}

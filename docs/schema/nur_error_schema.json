@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NurErrorSchema",
+  "description": "Standard schema for nur.h structured error representations, logs, and telemetry",
+  "type": "object",
+  "properties": {
+    "error": {
+      "type": "object",
+      "required": ["code", "name", "file", "line", "func"],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "Numeric nur_error_code_t value"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable enum identifier (e.g. NUR_E_INVALID_ARGUMENT)"
+        },
+        "message": {
+          "type": ["string", "null"],
+          "description": "Primary error message string"
+        },
+        "context": {
+          "type": ["string", "null"],
+          "description": "Diagnostic context or entity descriptor"
+        },
+        "file": {
+          "type": "string",
+          "description": "Source file where the error was instantiated"
+        },
+        "line": {
+          "type": "integer",
+          "description": "Source line number where the error occurred"
+        },
+        "func": {
+          "type": "string",
+          "description": "Function name where the error occurred"
+        },
+        "chain": {
+          "type": "array",
+          "description": "Multi-layer breadcrumb context chain captured during propagation",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cause": {
+          "type": ["object", "null"],
+          "description": "Recursive root cause descriptor if wrapped",
+          "properties": {
+            "code": { "type": "integer" },
+            "name": { "type": "string" },
+            "message": { "type": ["string", "null"] },
+            "file": { "type": "string" },
+            "line": { "type": "integer" }
+          }
+        }
+      }
+    }
+  }
+}

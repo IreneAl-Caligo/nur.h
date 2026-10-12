@@ -152,6 +152,20 @@ test-ai-contract: $(HEADER)
 	$(CC) $(CFLAGS_C11) -o test/test_ai_contract_examples$(EXE) test/test_ai_contract_examples.c
 	$(RUN_PREFIX)test/test_ai_contract_examples$(EXE)
 
+.PHONY: test-compile-fail
+test-compile-fail: $(HEADER)
+	@echo "Verifying compile-fail nodiscard warning..."
+ifeq ($(OS),Windows_NT)
+	@cmd /C "$(CC) $(CFLAGS_BASE) -std=c11 -Werror=unused-result -c test/test_compile_fail_nodiscard.c -o test_tmp.o 2>nul && exit /b 1 || echo Compile-fail check PASSED (compiler rejected discarded NurResult) [OK]"
+else
+	@if $(CC) $(CFLAGS_BASE) -std=c11 -Werror=unused-result -c test/test_compile_fail_nodiscard.c -o test_tmp.o 2>/dev/null; then \
+		echo "ERROR: Discarding NurResult did not fail compilation!"; \
+		exit 1; \
+	else \
+		echo "Compile-fail check PASSED (compiler rejected discarded NurResult) [OK]"; \
+	fi
+endif
+
 # AddressSanitizer and UndefinedBehaviorSanitizer
 .PHONY: test-asan
 test-asan:

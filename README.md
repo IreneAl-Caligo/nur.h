@@ -9,7 +9,7 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
 [![Zero Heap Allocation](https://img.shields.io/badge/Memory-0%20Bytes%20Heap-brightgreen.svg)](docs/BENCHMARKS.md)
 [![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.ci/ci.yml)
 [![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.ci/ci.yml)
-[![AI / LLM Ready](https://img.shields.io/badge/AI%20DX-LLM%20Safe%20Contract-purple.svg)](docs/AI_GUIDELINES.md)
+[![AI / LLM Ready](https://img.shields.io/badge/AI%20DX-LLM%20Safe%20Contract-purple.svg)](AI_POLICY.md)
 
 ---
 
@@ -277,17 +277,43 @@ make test-all
 # Check zero pedantic warnings
 make check
 
+# Verify compiler rejection of discarded results (compile-fail gate)
+make test-compile-fail
+
 # Validate all 17 real-world examples
 make examples
 
-# Run memory and undefined behavior sanitizers
+# Run memory and undefined behavior sanitizers (Linux/Clang)
 make test-asan
+```
+
+---
+
+## 🛠️ CLI Toolchain (`tools/nur-cc`)
+
+The included zero-dependency developer CLI assists in scaffolding and automated linting:
+
+```bash
+# Scaffold a new ready-to-build nur.h project
+./tools/nur-cc --new my_service
+
+# Run static safety and AI contract linting
+./tools/nur-cc --lint src/main.c
+
+# Auto-fix common typos and missing return semicolons
+./tools/nur-cc --fix src/main.c
+
+# Generate NurResult wrapper recipe for legacy signatures
+./tools/nur-cc --wrap "int parse_socket(const char *addr, int *out)"
 ```
 
 ---
 
 ## 📚 Documentation Index
 
+- [AI / LLM Inviolable Policy & Machine Rules](AI_POLICY.md)
+- [Rust to nur.h Rosetta Stone & Cheat Sheet](docs/RUST_TO_NUR.md)
+- [Portability & Compiler Support Guide](docs/PORTABILITY.md)
 - [Migration Guide (Legacy C -> nur.h)](docs/MIGRATION.md)
 - [AI / LLM Usage Contract & Prompt Pack](docs/AI_GUIDELINES.md)
 - [Error Taxonomy & POSIX/Win32 Mappings](docs/ERROR_TAXONOMY.md)

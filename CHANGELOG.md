@@ -5,6 +5,26 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-10-13
+
+### Added
+- **Type-Level `nodiscard` Support**: Added C23 `[[nodiscard]]` directly to `NurResult_*` typedefs and provided the `NUR_FN(ReturnType, FuncName, ...)` helper macro for older standards.
+- **Automated Compile-Fail Quality Gate**: Added `test/test_compile_fail_nodiscard.c` and `make test-compile-fail` to continuously verify that unused results trigger compiler rejections.
+- **Multi-Level Breadcrumb Context Chaining**: Added fixed-depth `context_chain[NUR_MAX_CONTEXT_DEPTH]` (depth 4) to `nur_error_t` with zero heap allocation, preserving both intermediate breadcrumb layer contexts and root `.cause`.
+- **Pure Freestanding & Embedded Decoupling**: Completely decoupled `NUR_PANIC`, `NUR_UNWRAP`, assertions, and panic handlers from `<stdio.h>` and `<stdlib.h>`. Added configurable hardware trap hook `NUR_PANIC_ABORT()`.
+- **Lightweight Mode (`NUR_LITE`)**: Minimal footprint preset disabling optional math/file super-extensions and safety assertions for bare-metal/constrained microcontrollers.
+- **AI / LLM Inviolable Policy**: Added machine-readable `AI_POLICY.md` (`NUR-AI-001` through `NUR-AI-007`) for automated agent code verification and IDE linter rules.
+- **Rust to C Rosetta Stone**: Added `docs/RUST_TO_NUR.md` mapping Rust Result/Option paradigms directly to `nur.h`.
+- **Structured Error Schema**: Added `docs/schema/nur_error_schema.json` conforming to JSON-Schema Draft-07 for logging and telemetry.
+- **GitHub Actions Hardened CI**: Added multi-OS (Linux GCC/Clang, macOS AppleClang, Windows MSVC) workflow in `.github/workflows/ci.yml`.
+- **CLI Enhancements (`tools/nur-cc`)**: Added project scaffolding (`--new`), migration recipes (`--wrap`), and bilingual linting (`--lang=en|bn`).
+
+### Fixed
+- **ISO C11 Strict Compatibility**: Replaced GNU `typeof` with `__typeof__` in `NUR_TRY_AUTO` for GCC/Clang in `-std=c11` strict pedantic mode.
+- **Freestanding Header Independence**: Fixed implicit `memset` and `abort` declarations when compiling with `-DNUR_NO_STRING -DNUR_NO_STDIO -DNUR_NO_STDLIB`.
+- **Non-GNU Fallback Single-Evaluation**: Eliminated double evaluation in non-GNU fallback expressions for `NUR_UNWRAP_OR`.
+- **Flat Layout Parity**: Ensured `NurResult_void` layout and field naming symmetry across pre-C11 compilers.
+
 ## [1.2.0] - 2026-10-13
 
 ### Added
