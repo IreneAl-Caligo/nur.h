@@ -88,9 +88,21 @@ $(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
 
 # Run tests
 .PHONY: test
-test: $(TEST_BINARY)
+test: $(TEST_BINARY) test-universal test-all-features
 	@echo "Running test suite..."
 	$(RUN_PREFIX)$(TEST_BINARY)
+
+.PHONY: test-universal
+test-universal: $(HEADER)
+	@echo "Running universal type & batteries-included test..."
+	$(CC) $(CFLAGS_C11) -o test/test_universal_type$(EXE) test/test_universal_type.c
+	$(RUN_PREFIX)test/test_universal_type$(EXE)
+
+.PHONY: test-all-features
+test-all-features: $(HEADER)
+	@echo "Running complete A-to-Z features and error suite..."
+	$(CC) $(CFLAGS_C11) -o test/test_all_features_and_errors$(EXE) test/test_all_features_and_errors.c
+	$(RUN_PREFIX)test/test_all_features_and_errors$(EXE)
 
 # Run tests for all C standards
 .PHONY: test-all

@@ -4,7 +4,7 @@ import os
 
 class NurConan(ConanFile):
     name = "nur"
-    version = "1.1.0"
+    version = "1.2.0"
     license = "MIT"
     author = "Irene Al-Caligo"
     url = "https://github.com/IreneAl-Caligo/nur.h"

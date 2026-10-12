@@ -99,7 +99,9 @@ gcc -std=c99 -Wall -Wextra -Wpedantic -Iinclude main.c -o main
 
 | Task | Recommended Macro | Example |
 |---|---|---|
-| **Return Success** | `NUR_OK(suffix, val)` | `return NUR_OK(i32, 42);` |
+| **Universal Return (C11+)** | `NUR_H(val)` | `return NUR_H(42);` *(or `"hello"`, `ptr`)* |
+| **Smart Ok (C11+)** | `NUR_OK(val)` | `return NUR_OK(42);` |
+| **Return Success (Explicit)** | `NUR_OK(suffix, val)` | `return NUR_OK(i32, 42);` |
 | **Return Error** | `NUR_ERR(suffix, err)` | `return NUR_ERR(i32, NUR_ERROR(NUR_E_PARSE, "msg"));` |
 | **Precondition Guard** | `NUR_CHECK(cond, err)` | `NUR_CHECK(ptr != NULL, NUR_ERROR(NUR_E_NULL_POINTER, "null"));` |
 | **Safe Error Propagation** | `NUR_TRY_AUTO(Dest, lhs, expr)` | `NUR_TRY_AUTO(i32, val, parse_int(s));` |
@@ -107,6 +109,8 @@ gcc -std=c99 -Wall -Wextra -Wpedantic -Iinclude main.c -o main
 | **Branch on Error** | `NUR_IF_ERR(res, err, body)` | `NUR_IF_ERR(r, err, { nur_error_eprint(&err); return -1; });` |
 | **Pattern Match** | `NUR_MATCH_AS(Type, r, v, ok, e, err)` | `NUR_MATCH_AS(int, r, v, { use(v); }, e, { log(e); });` |
 | **Fallback Value** | `NUR_OR_ELSE(r, fallback)` | `int port = NUR_OR_ELSE(parse_port(s), 8080);` |
+| **Safe Overflow Math** | `nur_add_i32(a, b)` | `NurResult_i32 sum = nur_add_i32(x, y);` |
+| **Safe Zero-Leak File Read** | `nur_file_read_text(path, buf, sz)` | `NurResult_cstr c = nur_file_read_text("f.txt", b, s);` |
 | **Transform Value** | `NUR_MAP(r, fn)` | `NurResult_i32 r2 = NUR_MAP(r, double_it);` |
 | **Result Chaining** | `NUR_AND_THEN(r, fn)` | `NurResult_i32 r2 = NUR_AND_THEN(r, parse_uid);` |
 | **Wrap Error Context** | `NUR_ERROR_WRAP(err, ctx)` | `NUR_ERROR_WRAP(NUR_ERROR_OF(r), "config parse");` |

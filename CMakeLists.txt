@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(nur VERSION 1.1.0 LANGUAGES C CXX)
+project(nur VERSION 1.2.0 LANGUAGES C CXX)
 
 # Header-only interface library target
 add_library(nur INTERFACE)
@@ -59,4 +59,20 @@ if(NUR_BUILD_TESTS)
         $<$<C_COMPILER_ID:MSVC>:/W4>
     )
     add_test(NAME test_nur COMMAND test_nur)
+
+    add_executable(test_universal_type test/test_universal_type.c)
+    target_link_libraries(test_universal_type PRIVATE nur)
+    target_compile_options(test_universal_type PRIVATE
+        $<$<C_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+        $<$<C_COMPILER_ID:MSVC>:/W4>
+    )
+    add_test(NAME test_universal_type COMMAND test_universal_type)
+
+    add_executable(test_all_features test/test_all_features_and_errors.c)
+    target_link_libraries(test_all_features PRIVATE nur)
+    target_compile_options(test_all_features PRIVATE
+        $<$<C_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+        $<$<C_COMPILER_ID:MSVC>:/W4>
+    )
+    add_test(NAME test_all_features COMMAND test_all_features)
 endif()

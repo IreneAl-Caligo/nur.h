@@ -5,6 +5,23 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-13
+
+### Added
+- Universal Single-Token Result Constructor `NUR_H(val)` using C11 `_Generic` covering `int32_t`, `int64_t`, `size_t`, `float`, `double`, `char*`, `const char*`, `void*`, and `bool`.
+- Preprocessor macro overloading for `NUR_OK`:
+  - 1-Argument: `NUR_OK(val)` dynamically dispatches via `NUR_H(val)`.
+  - 2-Arguments: `NUR_OK(suffix, val)` maintains legacy/explicit dispatch across C99/C11/C17/C23.
+- Drop-in Compile-Time Security Shield: compile-time assertion poisoning of obsolete `gets()` and typo protection intercepting `prinf()` with actionable compiler notes. Opt-out via `NUR_NO_SECURITY_SHIELD`.
+- Batteries-Included Super-Header: automatically includes `<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<math.h>`, `<time.h>`, `<ctype.h>`, `<stdbool.h>`, `<stdint.h>`, `<stddef.h>`, and `<errno.h>`.
+- Batteries-Included Safe Math helpers: `nur_add_i32`, `nur_sub_i32`, `nur_mul_i32`, `nur_div_i32` with zero runtime overhead and overflow error safety.
+- Batteries-Included Safe File I/O: `nur_file_read_text` for zero-heap, automatically-closed text file reading into caller buffer with null-termination guarantee.
+- Universal Developer CLI Toolchain (`tools/nur-cc`, `tools/nur-cc.c`, `tools/nur-cc.ps1`):
+  - Pre-flight scanner detecting missing semicolons on `return` statements and typos before compiler invocation.
+  - Multi-language internationalization (Universal English default, Bengali locale auto-detection, `--lang=en` and `--lang=bn` flags).
+  - `--fix` automated code correction and `.clang-format` integration.
+- Comprehensive end-to-end test suites: `test/test_universal_type.c` and `test/test_all_features_and_errors.c`.
+
 ## [1.1.0] - 2026-10-12
 
 ### Fixed

@@ -23,8 +23,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef NUR_H
-#define NUR_H
+#ifndef NUR_H_INCLUDED
+#define NUR_H_INCLUDED
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,10 +34,10 @@ extern "C" {
  * VERSION INFORMATION
  *===========================================================================*/
 #define NUR_VERSION_MAJOR 1
-#define NUR_VERSION_MINOR 1
+#define NUR_VERSION_MINOR 2
 #define NUR_VERSION_PATCH 0
-#define NUR_VERSION_STRING "1.1.0"
-#define NUR_VERSION_NUMBER 10100
+#define NUR_VERSION_STRING "1.2.0"
+#define NUR_VERSION_NUMBER 10200
 
 /*============================================================================
  * STANDARD DETECTION
@@ -102,6 +102,18 @@ extern "C" {
 
 #ifndef NUR_NO_STDLIB
     #include <stdlib.h>
+#endif
+
+#ifndef NUR_NO_MATH
+    #include <math.h>
+#endif
+
+#ifndef NUR_NO_TIME
+    #include <time.h>
+#endif
+
+#ifndef NUR_NO_CTYPE
+    #include <ctype.h>
 #endif
 
 /*============================================================================
@@ -515,6 +527,9 @@ NUR_RESULT_TYPE(int64_t, i64);
 NUR_RESULT_TYPE(size_t, usize);
 NUR_RESULT_TYPE(float, f32);
 NUR_RESULT_TYPE(double, f64);
+NUR_RESULT_TYPE(bool, bool);
+NUR_RESULT_TYPE(uint32_t, u32);
+NUR_RESULT_TYPE(uint64_t, u64);
 
 /* Pointer types */
 NUR_RESULT_TYPE(char *, cstr);
@@ -624,11 +639,65 @@ NUR_OPTION_TYPE(char *, cstr);
 NUR_OPTION_TYPE(void *, ptr);
 
 /*============================================================================
- * CONVENIENCE MACROS
+ * CONVENIENCE MACROS & UNIVERSAL TYPE ENGINE (Pillar 1)
  *===========================================================================*/
 
-/* Result constructors */
+/* Internal constructor helpers for C11 _Generic dispatch */
+NUR_UNUSED NUR_INLINE NurResult_i32 _nur_gen_i32(int32_t v) { return nur_ok_i32(v); }
+NUR_UNUSED NUR_INLINE NurResult_i64 _nur_gen_i64(int64_t v) { return nur_ok_i64(v); }
+NUR_UNUSED NUR_INLINE NurResult_i64 _nur_gen_long(long v) { return nur_ok_i64((int64_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_usize _nur_gen_uint(unsigned int v) { return nur_ok_usize((size_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_usize _nur_gen_ulong(unsigned long v) { return nur_ok_usize((size_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_usize _nur_gen_ullong(unsigned long long v) { return nur_ok_usize((size_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_f32 _nur_gen_f32(float v) { return nur_ok_f32(v); }
+NUR_UNUSED NUR_INLINE NurResult_f64 _nur_gen_f64(double v) { return nur_ok_f64(v); }
+NUR_UNUSED NUR_INLINE NurResult_cstr _nur_gen_cstr(char *v) { return nur_ok_cstr(v); }
+NUR_UNUSED NUR_INLINE NurResult_cstr _nur_gen_const_cstr(const char *v) { return nur_ok_cstr((char*)v); }
+NUR_UNUSED NUR_INLINE NurResult_ptr _nur_gen_ptr(void *v) { return nur_ok_ptr(v); }
+NUR_UNUSED NUR_INLINE NurResult_ptr _nur_gen_const_ptr(const void *v) { return nur_ok_ptr((void*)v); }
+NUR_UNUSED NUR_INLINE NurResult_bool _nur_gen_bool(bool v) { return nur_ok_bool(v); }
+
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11) || (defined(__cplusplus) && __cplusplus >= 201103L)
+/**
+ * Universal single-argument Result constructor using C11 _Generic.
+ * Infers input type at compile-time and returns the corresponding NurResult_<T>.
+ *
+ * Usage:
+ *   return NUR_H(42);         // returns NurResult_i32
+ *   return NUR_H("success");  // returns NurResult_cstr
+ *   return NUR_H(my_ptr);     // returns NurResult_ptr
+ */
+#define NUR_H(val) _Generic((val), \
+    _Bool:              _nur_gen_bool, \
+    int:                _nur_gen_i32, \
+    long:               _nur_gen_long, \
+    long long:          _nur_gen_i64, \
+    unsigned int:       _nur_gen_uint, \
+    unsigned long:      _nur_gen_ulong, \
+    unsigned long long: _nur_gen_ullong, \
+    float:              _nur_gen_f32, \
+    double:             _nur_gen_f64, \
+    char*:              _nur_gen_cstr, \
+    const char*:        _nur_gen_const_cstr, \
+    void*:              _nur_gen_ptr, \
+    const void*:        _nur_gen_const_ptr  \
+)(val)
+
+/* Overloaded NUR_OK macro:
+ * 1 Argument:  NUR_OK(val)         -> Dispatches dynamically via NUR_H(val)
+ * 2 Arguments: NUR_OK(suffix, val) -> Dispatches via legacy nur_ok_##suffix(val)
+ */
+#define _NUR_GET_MACRO_3(_1, _2, _3, ...) _3
+#define _NUR_OK_1(val)         NUR_H(val)
+#define _NUR_OK_2(suffix, val) nur_ok_##suffix(val)
+#define NUR_OK(...) _NUR_GET_MACRO_3(__VA_ARGS__, _NUR_OK_2, _NUR_OK_1, _nur_unused)(__VA_ARGS__)
+
+#else
+/* C99 legacy 2-argument constructor */
 #define NUR_OK(suffix, val)   nur_ok_##suffix(val)
+#define NUR_H(val)            (val)
+#endif
+
 #define NUR_ERR(suffix, err)  nur_err_##suffix(err)
 #define NUR_OK_VOID()         nur_ok_void()
 #define NUR_ERR_VOID(err)     nur_err_void(err)
@@ -2000,6 +2069,167 @@ NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
         } \
     } while (0)
 
+/*============================================================================
+ * BATTERIES-INCLUDED EXTENSIONS: SAFE MATH & SAFE FILE I/O (Pillar 4)
+ *===========================================================================*/
+
+/**
+ * Safely adds two 32-bit integers, returning NurResult_i32.
+ * Returns NUR_E_OVERFLOW if integer overflow occurs.
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_i32 nur_add_i32(int32_t a, int32_t b) {
+#if defined(NUR_GNU_EXTENSIONS) && __GNUC__ >= 5
+    int32_t res;
+    if (__builtin_add_overflow(a, b, &res)) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow in 32-bit addition", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32(res);
+#else
+    if ((b > 0 && a > (INT32_MAX - b)) || (b < 0 && a < (INT32_MIN - b))) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow in 32-bit addition", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32(a + b);
+#endif
+}
+
+/**
+ * Safely subtracts two 32-bit integers, returning NurResult_i32.
+ * Returns NUR_E_OVERFLOW if integer overflow/underflow occurs.
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_i32 nur_sub_i32(int32_t a, int32_t b) {
+#if defined(NUR_GNU_EXTENSIONS) && __GNUC__ >= 5
+    int32_t res;
+    if (__builtin_sub_overflow(a, b, &res)) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow/underflow in 32-bit subtraction", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32(res);
+#else
+    if ((b > 0 && a < (INT32_MIN + b)) || (b < 0 && a > (INT32_MAX + b))) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow/underflow in 32-bit subtraction", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32(a - b);
+#endif
+}
+
+/**
+ * Safely multiplies two 32-bit integers, returning NurResult_i32.
+ * Returns NUR_E_OVERFLOW if integer overflow occurs.
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_i32 nur_mul_i32(int32_t a, int32_t b) {
+#if defined(NUR_GNU_EXTENSIONS) && __GNUC__ >= 5
+    int32_t res;
+    if (__builtin_mul_overflow(a, b, &res)) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow in 32-bit multiplication", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32(res);
+#else
+    int64_t prod = (int64_t)a * (int64_t)b;
+    if (prod > INT32_MAX || prod < INT32_MIN) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow in 32-bit multiplication", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32((int32_t)prod);
+#endif
+}
+
+/**
+ * Safely divides two 32-bit integers, returning NurResult_i32.
+ * Returns NUR_E_INVALID_ARGUMENT on division by zero, or NUR_E_OVERFLOW on INT32_MIN / -1.
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_i32 nur_div_i32(int32_t a, int32_t b) {
+    if (b == 0) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0,
+            "Division by zero", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    if (a == INT32_MIN && b == -1) {
+        return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0,
+            "Integer overflow in division (INT32_MIN / -1)", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_i32(a / b);
+}
+
+/**
+ * Safely reads an entire text file into a caller-supplied buffer with zero heap allocation.
+ * Guarantees automatic file closure, null termination, and robust error classification.
+ *
+ * Usage:
+ *   char buf[512];
+ *   NurResult_cstr r = nur_file_read_text("config.json", buf, sizeof(buf));
+ *   if (NUR_IS_OK(r)) { printf("%s\n", NUR_VALUE(r)); }
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t buf_size) {
+    if (!path || !buf || buf_size == 0) {
+        return nur_err_cstr(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0,
+            "Invalid argument passed to nur_file_read_text", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return nur_err_cstr(nur_internal_make_error(
+            nur_error_code_from_errno(errno), errno,
+            "Failed to open file", path,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    size_t read_bytes = fread(buf, 1, buf_size - 1, f);
+    if (ferror(f)) {
+        fclose(f);
+        return nur_err_cstr(nur_internal_make_error(
+            NUR_E_IO, errno,
+            "I/O error while reading file", path,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    buf[read_bytes] = '\0';
+    fclose(f);
+    return nur_ok_cstr(buf);
+}
+
+/*============================================================================
+ * COMPILE-TIME SECURITY SHIELD & TYPO GUARD (Pillar 2)
+ *===========================================================================*/
+#ifndef NUR_NO_SECURITY_SHIELD
+
+#if defined(NUR_C11) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L)
+    #define gets(buf) _Static_assert(0, "[nur.h Security Shield] 'gets()' is inherently unsafe and banned due to buffer overflow! Use 'fgets()' instead.")
+    #define prinf(...) _Static_assert(0, "[nur.h Typo Guard] Typo detected: 'prinf' is not a valid C function. Did you mean 'printf'?")
+#elif (defined(__GNUC__) || defined(__clang__))
+    #define gets(buf) do { \
+        extern void _nur_shield_banned_gets(void) __attribute__((error("[nur.h Security Shield] 'gets()' is inherently unsafe and banned! Use 'fgets()' instead."))); \
+        _nur_shield_banned_gets(); \
+    } while(0)
+    #define prinf(...) do { \
+        extern void _nur_shield_typo_prinf(void) __attribute__((error("[nur.h Typo Guard] Typo detected: 'prinf'. Did you mean 'printf'?"))); \
+        _nur_shield_typo_prinf(); \
+    } while(0)
+#endif
+
+#ifdef NUR_STRICT_POISON
+    #if defined(__GNUC__) || defined(__clang__)
+        #pragma GCC poison gets
+        #pragma GCC poison strcpy
+        #pragma GCC poison strcat
+    #endif
+#endif
+
+#endif /* !NUR_NO_SECURITY_SHIELD */
+
 #endif /* !NUR_NO_STDLIB */
 #endif /* !NUR_NO_STDIO */
 
@@ -2007,4 +2237,4 @@ NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
 }
 #endif
 
-#endif /* NUR_H */
+#endif /* NUR_H_INCLUDED */

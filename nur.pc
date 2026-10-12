@@ -3,5 +3,5 @@ includedir=${prefix}/include
 
 Name: nur
 Description: Rust-style Result and Option error handling for ISO C
-Version: 1.1.0
+Version: 1.2.0
 Cflags: -I${includedir}

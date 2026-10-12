@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+# =============================================================================
+# nur-cc - Universal Developer CLI & Compile Guard for nur.h
+# Supports: Linux, macOS, WSL, Git Bash, MSYS2
+# =============================================================================
+
+set -e
+
+# Default settings
+LANG_MODE="en"
+AUTO_FIX=0
+OUTPUT_BIN=""
+SOURCE_FILE=""
+EXTRA_ARGS=()
+
+# Detect locale
+if [[ "${LANG:-}" =~ ^bn ]] || [[ "${LC_ALL:-}" =~ ^bn ]]; then
+    LANG_MODE="bn"
+fi
+
+# Print usage
+show_help() {
+    if [ "$LANG_MODE" = "bn" ]; then
+        echo "ব্যবহার: ./nur-cc [অপশন] <ফাইল.c>"
+        echo ""
+        echo "অপশনসমূহ:"
+        echo "  -o <আউটপুট>       কম্পাইল করা বাইনারির নাম নির্ধারণ"
+        echo "  --fix             সেমিকোলন ও টাইপো স্বয়ংক্রিয়ভাবে ঠিক করা"
+        echo "  --lang=en|bn      ভাষা নির্বাচন (ডিফল্ট: en / সিস্টেম লোকেল)"
+        echo "  -h, --help        সাহায্য বার্তা প্রদর্শন"
+    else
+        echo "Usage: ./nur-cc [options] <source.c>"
+        echo ""
+        echo "Options:"
+        echo "  -o <output>       Specify output binary name"
+        echo "  --fix             Automatically fix missing semicolons and typos"
+        echo "  --lang=en|bn      Language selection (default: en / system locale)"
+        echo "  -h, --help        Show this help message"
+    fi
+    exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --lang=*)
+            LANG_MODE="${1#*=}"
+            shift
+            ;;
+        --fix)
+            AUTO_FIX=1
+            shift
+            ;;
+        -o)
+            OUTPUT_BIN="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *.c)
+            SOURCE_FILE="$1"
+            shift
+            ;;
+        *)
+            EXTRA_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$SOURCE_FILE" ]; then
+    if [ "$LANG_MODE" = "bn" ]; then
+        echo "ত্রুটি: কোনো C সোর্স ফাইল উল্লেখ করা হয়নি!"
+        echo "ব্যবহার: ./nur-cc <ফাইল.c>"
+    else
+        echo "Error: No C source file specified!"
+        echo "Usage: ./nur-cc <source.c>"
+    fi
+    exit 1
+fi
+
+if [ ! -f "$SOURCE_FILE" ]; then
+    if [ "$LANG_MODE" = "bn" ]; then
+        echo "ত্রুটি: '$SOURCE_FILE' ফাইলটি খুঁজে পাওয়া যায়নি!"
+    else
+        echo "Error: File '$SOURCE_FILE' not found!"
+    fi
+    exit 1
+fi
+
+# Locate include directory for nur.h
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+INC_DIR="$REPO_ROOT/src"
+if [ ! -d "$INC_DIR" ]; then
+    INC_DIR="$REPO_ROOT"
+fi
+
+# Detect C Compiler
+CC_CMD="${CC:-gcc}"
+if ! command -v "$CC_CMD" &>/dev/null; then
+    if command -v clang &>/dev/null; then
+        CC_CMD="clang"
+    fi
+fi
+
+# Set default output binary
+if [ -z "$OUTPUT_BIN" ]; then
+    BASENAME="$(basename "$SOURCE_FILE" .c)"
+    if [[ "$OSTYPE" == "msys"* ]] || [[ "$OSTYPE" == "cygwin"* ]] || [[ "$OSTYPE" == "win32"* ]]; then
+        OUTPUT_BIN="${BASENAME}.exe"
+    else
+        OUTPUT_BIN="./${BASENAME}"
+    fi
+fi
+
+# Pre-flight syntax and typo scan
+ERRORS_FOUND=0
+LINE_NUM=0
+
+while IFS= read -r line || [ -n "$line" ]; do
+    LINE_NUM=$((LINE_NUM + 1))
+
+    # Check for banned gets()
+    if [[ "$line" =~ [[:space:]]*gets[[:space:]]*\( ]]; then
+        ERRORS_FOUND=$((ERRORS_FOUND + 1))
+        if [ "$LANG_MODE" = "bn" ]; then
+            echo -e "\033[1;31m🛑 [nur.h Shield] লাইন $LINE_NUM: অনিরাপদ 'gets()' ফাংশন পাওয়া গেছে!\033[0m"
+            echo -e "\033[1;33m💡 সমাধান: বাফার ওভারফ্লো এড়াতে 'fgets()' ব্যবহার করুন।\033[0m"
+        else
+            echo -e "\033[1;31m🛑 [nur.h Shield] Line $LINE_NUM: Inherently unsafe 'gets()' detected!\033[0m"
+            echo -e "\033[1;33m💡 Fix: Replace 'gets()' with safe 'fgets()'.\033[0m"
+        fi
+    fi
+
+    # Check for prinf typo
+    if [[ "$line" =~ prinf[[:space:]]*\( ]]; then
+        ERRORS_FOUND=$((ERRORS_FOUND + 1))
+        if [ "$LANG_MODE" = "bn" ]; then
+            echo -e "\033[1;31m🛑 [nur.h Typo Guard] লাইন $LINE_NUM: টাইপো ধরা পড়েছে ('prinf')!\033[0m"
+            echo -e "\033[1;33m💡 সমাধান: সঠিক বানান হবে 'printf'। ঠিক করতে চালান: ./nur-cc --fix $SOURCE_FILE\033[0m"
+        else
+            echo -e "\033[1;31m🛑 [nur.h Typo Guard] Line $LINE_NUM: Typo detected ('prinf')!\033[0m"
+            echo -e "\033[1;33m💡 Fix: Did you mean 'printf'? Auto-fix with: ./nur-cc --fix $SOURCE_FILE\033[0m"
+        fi
+    fi
+
+    # Check for missing semicolon on return
+    if [[ "$line" =~ ^[[:space:]]*return[[:space:]]+[^;{]+$ ]] && [[ ! "$line" =~ \;[[:space:]]*$ ]]; then
+        ERRORS_FOUND=$((ERRORS_FOUND + 1))
+        if [ "$LANG_MODE" = "bn" ]; then
+            echo -e "\033[1;31m🛑 [nur.h Shield] লাইন $LINE_NUM: 'return'-এর শেষে সেমিকোলন (;) নেই!\033[0m"
+            echo -e "\033[1;33m💡 সমাধান: লাইনের শেষে ';' যোগ করুন অথবা চালান: ./nur-cc --fix $SOURCE_FILE\033[0m"
+        else
+            echo -e "\033[1;31m🛑 [nur.h Shield] Line $LINE_NUM: Missing semicolon ';' after return statement!\033[0m"
+            echo -e "\033[1;33m💡 Fix: Add ';' at end of line or run: ./nur-cc --fix $SOURCE_FILE\033[0m"
+        fi
+    fi
+done < "$SOURCE_FILE"
+
+# Handle Auto-Fix
+if [ $AUTO_FIX -eq 1 ]; then
+    if [ "$LANG_MODE" = "bn" ]; then
+        echo -e "\033[1;36m🔧 [nur.h Auto-Fix] কোড স্বয়ংক্রিয়ভাবে সংশোধন করা হচ্ছে...\033[0m"
+    else
+        echo -e "\033[1;36m🔧 [nur.h Auto-Fix] Applying automated syntax and formatting corrections...\033[0m"
+    fi
+
+    # Fix prinf typo
+    sed -i 's/\bprinf(/printf(/g' "$SOURCE_FILE"
+
+    # Fix missing semicolon on return
+    sed -i -E 's/^([[:space:]]*return[[:space:]]+[^;{}]+)$/\1;/' "$SOURCE_FILE"
+
+    # Format using clang-format if available
+    if command -v clang-format &>/dev/null; then
+        clang-format -i "$SOURCE_FILE"
+    fi
+
+    if [ "$LANG_MODE" = "bn" ]; then
+        echo -e "\033[1;32m✓ [nur.h Auto-Fix] সংশোধন সম্পন্ন হয়েছে!\033[0m"
+    else
+        echo -e "\033[1;32m✓ [nur.h Auto-Fix] All automated fixes applied successfully!\033[0m"
+    fi
+    ERRORS_FOUND=0
+fi
+
+if [ $ERRORS_FOUND -gt 0 ]; then
+    exit 1
+fi
+
+# Compile
+if [ "$LANG_MODE" = "bn" ]; then
+    echo -e "\033[1;34m🔨 কম্পাইল করা হচ্ছে: $SOURCE_FILE -> $OUTPUT_BIN ...\033[0m"
+else
+    echo -e "\033[1;34m🔨 Compiling: $SOURCE_FILE -> $OUTPUT_BIN ...\033[0m"
+fi
+
+"$CC_CMD" -Wall -Wextra -I"$INC_DIR" "$SOURCE_FILE" -o "$OUTPUT_BIN" "${EXTRA_ARGS[@]}"
+
+# Run binary
+if [ -f "$OUTPUT_BIN" ]; then
+    if [ "$LANG_MODE" = "bn" ]; then
+        echo -e "\033[1;32m🚀 প্রোগ্রাম চালানো হচ্ছে...\033[0m"
+    else
+        echo -e "\033[1;32m🚀 Executing program...\033[0m"
+    fi
+    "$OUTPUT_BIN"
+fi

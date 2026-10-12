@@ -108,3 +108,12 @@ Before submitting any code change:
 2. Run `make test-all` — verify all C standards (C99, C11, C17, C23) compile cleanly.
 3. Check `-Wall -Wextra -Wpedantic` — zero warnings allowed.
 4. Ensure no `abort()` is placed in public library paths without configurable override.
+
+---
+
+## 5. Modern Universal Syntax (v1.2.0+) & Compile-Time Safety
+- **Universal Single-Token Constructor**: In C11+, AI agents can write `return NUR_H(val);` or `return NUR_OK(val);`. The C11 `_Generic` engine automatically determines the target Result type (`i32`, `i64`, `usize`, `f32`, `f64`, `cstr`, `ptr`, `bool`).
+- **Legacy Backward Compatibility**: 2-argument `NUR_OK(suffix, val)` is strictly supported across all standards (C99/C11/C17/C23).
+- **Batteries-Included Extensions**: Use `nur_add_i32()`, `nur_sub_i32()`, `nur_mul_i32()`, `nur_div_i32()` for overflow-safe arithmetic, and `nur_file_read_text()` for zero-leak buffer reading.
+- **Security Shield**: `nur.h` blocks obsolete/vulnerable functions (e.g., `gets()`) and common typos (e.g., `prinf()`). Never bypass the security shield in production code.
+

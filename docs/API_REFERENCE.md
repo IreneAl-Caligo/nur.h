@@ -92,3 +92,31 @@ NurResult_i32 r2 = NUR_AND_THEN(r, parse_record);
 - `nur_error_print(const nur_error_t *e, FILE *f)`: Prints formatted diagnostic to stream.
 - `nur_error_eprint(const nur_error_t *e)`: Prints diagnostic to `stderr`.
 - `nur_set_panic_handler(handler)`: Overrides panic handler for testing or logging integration.
+
+---
+
+## 6. Universal Type Engine (v1.2.0+)
+
+| Macro | Description | Compatibility |
+|---|---|---|
+| `NUR_H(val)` | Single-argument universal constructor using C11 `_Generic`. Infers primitive type and returns matching `NurResult_<T>`. | C11, C17, C23, C++11 |
+| `NUR_OK(val)` | 1-argument overload of `NUR_OK`, delegating to `NUR_H(val)`. | C11, C17, C23, C++11 |
+| `NUR_OK(suffix, val)` | Legacy explicit 2-argument constructor (`nur_ok_##suffix(val)`). | C99, C11, C17, C23 |
+
+---
+
+## 7. Batteries-Included Extensions & Security Shield
+
+### Safe Math
+- `nur_add_i32(int32_t a, int32_t b)`: Safe 32-bit addition; returns `NurResult_i32` with `NUR_E_OVERFLOW` on overflow.
+- `nur_sub_i32(int32_t a, int32_t b)`: Safe 32-bit subtraction; returns `NurResult_i32` with `NUR_E_OVERFLOW` on overflow/underflow.
+- `nur_mul_i32(int32_t a, int32_t b)`: Safe 32-bit multiplication; returns `NurResult_i32` with `NUR_E_OVERFLOW` on overflow.
+- `nur_div_i32(int32_t a, int32_t b)`: Safe 32-bit division; returns `NurResult_i32` with `NUR_E_INVALID_ARGUMENT` on divide-by-zero.
+
+### Safe File I/O
+- `nur_file_read_text(const char *path, char *buf, size_t buf_size)`: Zero-heap text file reader. Automatically closes file handle, null-terminates buffer, and returns `NurResult_cstr` with mapped system errors.
+
+### Security Shield & CLI
+- **Compile-Time Shield**: Intercepts banned functions (`gets()`) and common typos (`prinf()`) at compile-time with actionable diagnostic notes. Opt-out via `#define NUR_NO_SECURITY_SHIELD`.
+- **Developer CLI (`tools/nur-cc`)**: Pre-flight syntax and typo checker with multi-language i18n support (`--lang=en`, `--lang=bn`) and `--fix` auto-correction.
+
