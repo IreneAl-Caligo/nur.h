@@ -42,9 +42,14 @@
 
 ### Utilities
 - `nur_error_format(err, buf, cap)` -> Formats error to single-line text
-- `nur_error_json(err, buf, cap)` -> Formats error as valid RFC 8259 JSON
-- `nur_set_panic_handler(fn)` -> Overrides default panic abort behavior
 - `NUR_ASSERT_OK(r)` / `NUR_ASSERT_ERR(r, code)` -> Unit test assertion helpers
+- `NUR_MAP(r, fn)` -> Transforms Ok value; passes Err through
+- `NUR_AND_THEN(r, fn)` -> Chains Result-returning function on Ok
+- `NUR_ERROR_WRAP(err, ctx)` -> Wraps context, migrating previous context to `.cause`
+- `NUR_ERROR_CAUSE(err)` -> Reads root cause string
+- `NUR_ERROR_IS(err, code)` -> Tests if error matches code
+- `NUR_RETURN_IF_ERR(expr)` -> Early returns error from void function
+- `NUR_CHECK_MSG(cond, code, msg)` -> Precondition guard with code and message
 
 ## Standard Idiom
 ```c

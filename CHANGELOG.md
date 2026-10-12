@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed C99 `-Wpedantic` unnamed struct/union warning in `NurResult_void`, achieving 100% warning-free compilation under `-Wall -Wextra -Wpedantic` across ISO C99, C11, C17, and C23.
 
 ### Added
+- Ergonomic Result combinators: `NUR_MAP` (value transformation), `NUR_AND_THEN` (monadic chaining), and `NUR_UNWRAP_OR` with C11 `_Generic` single-evaluation dispatch on MSVC.
+- Zero-allocation Root Cause Error Chaining: `.cause` field in `nur_error_t`, `NUR_ERROR_WRAP`, `NUR_ERROR_CAUSE`, and `NUR_ERROR_CAUSED_BY`.
+- Compile-time string literal verification macros: `NUR_ERROR_LIT` and `NUR_ERROR_LIT_CTX` preventing stack-buffer dangling pointer lifetime bugs.
+- Scope-based automatic resource cleanup: `NUR_CLEANUP`, `NUR_AUTO_FREE`, and `NUR_AUTO_FILE` for GCC/Clang.
+- Structured JSON logging streamers: `nur_error_log_json` and `nur_error_elog_json`.
 - Ergonomic macros: `NUR_REQUIRE_OK`, `NUR_REQUIRE_OK_MSG`, `NUR_IF_ERR`, `NUR_VOID_IF_ERR`, `NUR_MATCH_AS`, `NUR_MATCH`, `NUR_OR_ELSE`, `NUR_VOID_ERROR_OF`.
 - Production-grade real-world examples:
   - `examples/real-world/03_cli_arg_parser.c`: Zero-allocation CLI argument parsing with port validation.

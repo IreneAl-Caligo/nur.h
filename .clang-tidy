@@ -7,7 +7,7 @@ Checks: >
   misc-*,
   performance-*,
   readability-*
-WarningsAsErrors: ''
+WarningsAsErrors: 'bugprone-*,clang-analyzer-*'
 HeaderFilterRegex: 'src/nur\.h'
 FormatStyle: file
 ...

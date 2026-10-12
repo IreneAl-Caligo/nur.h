@@ -1,91 +1,74 @@
-# AI & LLM Code Generation Guidelines for nur.h
+# AI and LLM Usage Contract for nur.h
 
-This guide defines the explicit usage contract, safety invariants, and prompt templates for AI coding assistants (Claude, GPT-4, Gemini, Cursor, GitHub Copilot) generating C code with `nur.h`.
+Strict contract for AI-generated C code using nur.h.
 
----
+## 1. The 5 Safety Rules
 
-## 1. When to Use vs. When NOT to Use
+1. Never access NUR_VALUE without checking NUR_IS_OK first.
+2. Never create nur_error_t from stack-allocated string buffers.
+3. Always add context with NUR_ERROR_CTX when relevant.
+4. Use NUR_TRY_GOTO when the function holds resources.
+5. Never silently ignore NurResult_* return values.
 
-### ✅ When to Use nur.h
-- **I/O & Filesystem**: Opening files, sockets, device streams, pipes.
-- **Parsing & Serialization**: JSON, INI, CSV, protocol buffers, command-line arguments.
-- **Network Operations**: Socket connect, bind, read, write, HTTP/TLS requests.
-- **Dynamic Allocation**: Boundary checks around heap allocation (`malloc`, `calloc`).
-- **Public API Boundaries**: Exposing fallible functions in shared libraries and modular components.
-- **Hardware & Microcontroller Drivers**: Sensor readings, CRC validation, bus operations.
+## 2. Allowed Patterns
 
-### ❌ When NOT to Use nur.h
-- **Pure Arithmetic Operations**: Math functions (e.g. `sin()`, `cos()`, fast matrix multiplication) where failure is impossible or handled via IEEE 754 NaN/Inf.
-- **Tight Inner Loops**: Critical performance sections where returning a struct on each iteration adds register pressure and failure cannot occur.
-- **Trivial Getters / Setters**: Reading or assigning pre-validated struct members.
-- **Interrupt Service Routines (ISRs)**: Bare-metal interrupt handlers with strict non-standard ABI and zero cycle latency requirements.
-
----
-
-## 2. Invariant Rules for AI Agents
-
-LLMs generating C code MUST adhere to the following invariants:
-
-### Invariant 1: Check `NUR_IS_OK` Before `NUR_VALUE`
-Accessing `.u.value` or calling `NUR_VALUE(r)` without verifying `NUR_IS_OK(r)` produces **Undefined Behavior** on error.
 ```c
-// [CORRECT]
+// Pattern A: check-then-use
 NurResult_i32 r = compute();
 if (NUR_IS_OK(r)) {
     int val = NUR_VALUE(r);
-    use_val(val);
 } else {
     nur_error_eprint(&NUR_ERROR_OF(r));
 }
 
-// [FORBIDDEN - AI MUST NEVER GENERATE THIS]
-int val = NUR_VALUE(r); // CRASH / UB IF r IS AN ERROR!
+// Pattern B: fallback
+int ms = NUR_UNWRAP_OR(read_timeout(), 5000);
+
+// Pattern C: resource cleanup
+FILE *f = fopen(path, "rb");
+int val = 0; nur_error_t err = {0};
+NurResult_i32 _r = parse_file(f);
+NUR_TRY_GOTO(val, _r, err, cleanup);
+cleanup:
+    fclose(f);
+    if (err.code != NUR_E_NONE) return nur_err_i32(err);
+    return NUR_OK(i32, val);
 ```
 
-### Invariant 2: Error Strings Must Have Static Duration
-The string pointers (`.message`, `.context`, `.file`, `.func`) in `nur_error_t` are **borrowed references**.
-- **DO**: Pass string literals (`"failed to open"`) or pointers with static/global duration.
-- **DO NOT**: Pass pointers to local stack buffers (e.g., `char err_buf[64]; snprintf(err_buf, ...); return NUR_ERR(..., NUR_ERROR(..., err_buf))`).
+## 3. Forbidden Patterns
 
-### Invariant 3: Use `NUR_TRY_GOTO` for Resource Cleanup
-`NUR_TRY_TO` executes an immediate `return` from the enclosing function. If heap memory, file handles, or mutex locks were acquired prior to the macro, an early return **leaks memory**.
-- Use `NUR_TRY_GOTO` whenever resources require cleanup.
-
-### Invariant 4: `NUR_RESULT_TYPE` Placement
-- Declare `NUR_RESULT_TYPE(Type, suffix);` once at **file scope** in a header file.
-- Do NOT declare it inside a function body.
-- Always terminate with a semicolon `;`.
-
----
-
-## 3. LLM Prompt Pack
-
-### Prompt 1: Converting Legacy C to NurResult
-```text
-Refactor the following C function to use the `nur.h` library:
-- Replace integer/boolean return codes with a type-safe `NurResult_<type>` or `NurResult_void`.
-- Eliminate out-pointers (e.g., `int *out`) by returning the value inside `NurResult`.
-- Map system failures using `NUR_ERROR_ERRNO_CTX("description", context)`.
-- If resources (file handles, heap buffers, sockets) are held, use `NUR_TRY_GOTO` to avoid leaks.
-- Ensure all error messages are string literals with static lifetime.
-- Mark the function declaration with `NUR_NODISCARD`.
+```c
+int x = NUR_VALUE(r);        // FORBIDDEN: no NUR_IS_OK guard
+return -1;                   // FORBIDDEN: raw sentinel
+return NULL;                 // FORBIDDEN: raw NULL
+// NUR_TRY_TO after malloc   // FORBIDDEN: leaks memory
+// stack buf in error ctx    // FORBIDDEN: dangling pointer
 ```
 
-### Prompt 2: Wrapping Standard I/O Safely
-```text
-Write a robust C file-reading function using `nur.h`:
-- Take `const char *path` and return `NurResult_usize` indicating bytes read into a caller buffer.
-- Validate arguments with `NUR_CHECK`.
-- Capture `errno` with `NUR_ERROR_ERRNO_CTX` on `fopen`, `fread`, and `fclose` failures.
-- Ensure the `FILE *` handle is closed on every error exit path using `NUR_TRY_GOTO`.
-```
+## 4. Generation Checklist
 
-### Prompt 3: Self-Healing / Verification Prompt
-```text
-Review the generated C code against `nur.h` safety rules:
-1. Is `NUR_IS_OK` checked before every invocation of `NUR_VALUE`?
-2. Are any local stack-allocated char buffers passed into `NUR_ERROR` or `NUR_ERROR_CTX`?
-3. Could an early return from `NUR_TRY_TO` leak any allocated memory or open handles?
-4. Is `NUR_RESULT_TYPE` placed at file scope with a trailing semicolon?
-If any violations are found, fix them immediately.
-```
+1. All fallible functions return NurResult_*
+2. NUR_IS_OK checked before every NUR_VALUE call
+3. NUR_ERROR_CTX used for contextual diagnostics
+4. NUR_TRY_GOTO used when resources are held
+5. Both success and failure paths demonstrated
+6. NUR_RESULT_TYPE at file scope with trailing semicolon
+
+## 5. Prompt Templates
+
+Prompt 1 - Convert Legacy C:
+Replace int/bool return codes with NurResult_<type>.
+Use NUR_ERROR_ERRNO_CTX for system failures.
+Use NUR_TRY_GOTO for resource cleanup.
+
+Prompt 2 - Verification:
+1. NUR_IS_OK before every NUR_VALUE?
+2. Stack buffers in error context?
+3. NUR_TRY_TO leaking resources?
+4. NUR_RESULT_TYPE at file scope?
+5. NurResult_* ignored silently?
+
+## 6. When to Use
+
+USE: I/O, parsing, network, allocation, public API boundaries.
+SKIP: pure math, tight inner loops, ISRs, trivial getters.

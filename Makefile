@@ -122,6 +122,24 @@ test-c23-features: $(C23_TEST_BINARY)
 	@echo "Running C23 feature validation tests..."
 	$(RUN_PREFIX)$(C23_TEST_BINARY)
 
+.PHONY: test-result-helpers
+test-result-helpers: $(HEADER)
+	@echo "Running result helpers test..."
+	$(CC) $(CFLAGS_C11) -o test/test_result_helpers$(EXE) test/test_result_helpers.c
+	$(RUN_PREFIX)test/test_result_helpers$(EXE)
+
+.PHONY: test-error-wrap
+test-error-wrap: $(HEADER)
+	@echo "Running error wrap test..."
+	$(CC) $(CFLAGS_C11) -o test/test_error_wrap$(EXE) test/test_error_wrap.c
+	$(RUN_PREFIX)test/test_error_wrap$(EXE)
+
+.PHONY: test-ai-contract
+test-ai-contract: $(HEADER)
+	@echo "Running AI contract test..."
+	$(CC) $(CFLAGS_C11) -o test/test_ai_contract_examples$(EXE) test/test_ai_contract_examples.c
+	$(RUN_PREFIX)test/test_ai_contract_examples$(EXE)
+
 # AddressSanitizer and UndefinedBehaviorSanitizer
 .PHONY: test-asan
 test-asan:

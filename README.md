@@ -107,6 +107,11 @@ gcc -std=c99 -Wall -Wextra -Wpedantic -Iinclude main.c -o main
 | **Branch on Error** | `NUR_IF_ERR(res, err, body)` | `NUR_IF_ERR(r, err, { nur_error_eprint(&err); return -1; });` |
 | **Pattern Match** | `NUR_MATCH_AS(Type, r, v, ok, e, err)` | `NUR_MATCH_AS(int, r, v, { use(v); }, e, { log(e); });` |
 | **Fallback Value** | `NUR_OR_ELSE(r, fallback)` | `int port = NUR_OR_ELSE(parse_port(s), 8080);` |
+| **Transform Value** | `NUR_MAP(r, fn)` | `NurResult_i32 r2 = NUR_MAP(r, double_it);` |
+| **Result Chaining** | `NUR_AND_THEN(r, fn)` | `NurResult_i32 r2 = NUR_AND_THEN(r, parse_uid);` |
+| **Wrap Error Context** | `NUR_ERROR_WRAP(err, ctx)` | `NUR_ERROR_WRAP(NUR_ERROR_OF(r), "config parse");` |
+| **Test Error Code** | `NUR_ERROR_IS(err, code)` | `if (NUR_ERROR_IS(err, NUR_E_NOT_FOUND)) { ... }` |
+| **Early Return on Err**| `NUR_RETURN_IF_ERR(expr)` | `NUR_RETURN_IF_ERR(validate_header(h));` |
 | **Require Ok (Assert)** | `NUR_REQUIRE_OK(r)` | `NUR_REQUIRE_OK(init_subsystem());` |
 | **Capture `errno`** | `NUR_ERROR_ERRNO_CTX(msg, ctx)` | `NUR_ERROR_ERRNO_CTX("fopen failed", path)` |
 

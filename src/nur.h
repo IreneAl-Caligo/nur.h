@@ -113,6 +113,10 @@ extern "C" {
     #define NUR_NODISCARD [[nodiscard]]
     #define NUR_NODISCARD_MSG(msg) [[nodiscard(msg)]]
     #define NUR_NODISCARD_TYPE [[nodiscard]]
+#elif defined(__clang__)
+    #define NUR_NODISCARD __attribute__((warn_unused_result))
+    #define NUR_NODISCARD_MSG(msg) __attribute__((warn_unused_result))
+    #define NUR_NODISCARD_TYPE __attribute__((warn_unused_result))
 #elif defined(NUR_GNU_EXTENSIONS)
     #define NUR_NODISCARD __attribute__((warn_unused_result))
     #define NUR_NODISCARD_MSG(msg) __attribute__((warn_unused_result))
@@ -291,6 +295,7 @@ typedef enum {
  *   sys:     System error code (errno/Win32), 0 if none
  *   message: Human-readable description (static string, never NULL)
  *   context: Optional operation context (static string, may be NULL)
+ *   cause:   Optional root cause or previous context (static string, may be NULL)
  *   file:    Source file where error was raised
  *   func:    Function where error was raised
  *   line:    Line number where error was raised
@@ -300,6 +305,7 @@ typedef struct {
     int              sys;      
     const char      *message;  
     const char      *context;  
+    const char      *cause;    
     const char      *file;     
     const char      *func;     
     unsigned int     line;     
@@ -332,6 +338,7 @@ NUR_INLINE nur_error_t nur_internal_make_error(
     err.sys = sys;
     err.message = message;
     err.context = context;
+    err.cause = (const char *)0;
     err.file = file;
     err.func = func;
     err.line = line;
@@ -349,20 +356,43 @@ NUR_INLINE nur_error_t nur_internal_make_error(
 
 /**
  * Wrap an existing error with new context, PRESERVING original code, sys,
- * message, file, func, line, and backtrace. Only .context is changed.
- * This is NOT a full error chain -- the original source location is retained.
+ * message, file, func, line, and backtrace.
  *
- * Fix: previously called nur_internal_make_error with new source location,
- * discarding the original trace. Now uses nur_error_with_context().
+ * ROOT CAUSE CHAINING: If the error already had a .context, the previous
+ * context is automatically migrated into .cause so the origin isn't lost!
  *
  * Usage: NUR_WRAP_ERROR(NUR_ERROR_OF(res), "failed to parse config")
  */
 NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
+    if (e.context != NULL && e.cause == NULL) {
+        e.cause = e.context;
+    }
     e.context = ctx;
     return e;
 }
+
+/**
+ * Explicitly wrap an error with a high-level context and specific root cause.
+ */
+NUR_INLINE nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, const char *cause_str) {
+    e.context = ctx;
+    e.cause = cause_str;
+    return e;
+}
+
 #define NUR_WRAP_ERROR(err_val, new_ctx) \
     nur_error_with_context((err_val), (new_ctx))
+
+/**
+ * Read the root cause of an error (NULL if no cause attached).
+ */
+#define NUR_ERROR_CAUSE(err) ((err).cause)
+
+/**
+ * Wrap an error with both context and root cause.
+ */
+#define NUR_ERROR_CAUSED_BY(err_val, new_ctx, cause_val) \
+    nur_error_with_cause((err_val), (new_ctx), (cause_val))
 
 /**
  * Create an error with code and message, capturing source location.
@@ -379,6 +409,24 @@ NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
  */
 #define NUR_ERROR_CTX(code, msg, ctx) \
     nur_internal_make_error((code), 0, (msg), (ctx), NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+
+/**
+ * Compile-time literal enforcement:
+ * Guarantees that msg is a string literal (e.g. "my error"), NOT an ephemeral
+ * stack buffer. Fails compilation across GCC, Clang, and MSVC if a variable/buffer is passed.
+ *
+ * Usage: NUR_ERROR_LIT(NUR_E_INVALID_ARGUMENT, "port out of range")
+ */
+#define NUR_ERROR_LIT(code, literal_msg) \
+    NUR_ERROR((code), ("" literal_msg))
+
+/**
+ * Compile-time literal enforcement for both message and context:
+ *
+ * Usage: NUR_ERROR_LIT_CTX(NUR_E_OUT_OF_RANGE, "port out of range", "port validator")
+ */
+#define NUR_ERROR_LIT_CTX(code, literal_msg, literal_ctx) \
+    NUR_ERROR_CTX((code), ("" literal_msg), ("" literal_ctx))
 
 /**
  * Create an I/O error from errno, capturing source location.
@@ -450,6 +498,11 @@ NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
         r_.u.error = err_; \
         return r_; \
     } \
+    \
+    NUR_NODISCARD NUR_UNUSED \
+    NUR_INLINE T nur_unwrap_or_##suffix(NurResult_##suffix r_, T fallback_) { \
+        return r_.ok ? r_.u.value : fallback_; \
+    } \
     struct _nur_dummy_decl_##suffix
 
 /*============================================================================
@@ -503,6 +556,7 @@ NUR_NODISCARD NUR_INLINE NurResult_void nur_ok_void(void) {
     r.error.sys = 0;
     r.error.message = (const char *)0;
     r.error.context = (const char *)0;
+    r.error.cause = (const char *)0;
     r.error.file = (const char *)0;
     r.error.func = (const char *)0;
     r.error.line = 0U;
@@ -868,6 +922,12 @@ NUR_INLINE size_t nur_error_format(const nur_error_t *error, char *buffer, size_
         nur_internal_sink_putc(&sink, ']');
     }
     
+    if (error->cause && error->cause[0] != '\0') {
+        nur_internal_sink_puts(&sink, " (caused by: ");
+        nur_internal_sink_puts(&sink, error->cause);
+        nur_internal_sink_putc(&sink, ')');
+    }
+    
     if (error->sys != 0) {
         nur_internal_sink_puts(&sink, " (sys: ");
         nur_internal_sink_puti(&sink, error->sys);
@@ -938,6 +998,21 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
     if (error->context && error->context[0] != '\0') {
         nur_internal_sink_puts(&sink, ",\"context\":\"");
         const char *p = error->context;
+        while (*p) {
+            if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
+            else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
+            else if (*p == '\n') nur_internal_sink_puts(&sink, "\\n");
+            else if (*p == '\r') nur_internal_sink_puts(&sink, "\\r");
+            else if (*p == '\t') nur_internal_sink_puts(&sink, "\\t");
+            else nur_internal_sink_putc(&sink, *p);
+            p++;
+        }
+        nur_internal_sink_putc(&sink, '"');
+    }
+
+    if (error->cause && error->cause[0] != '\0') {
+        nur_internal_sink_puts(&sink, ",\"cause\":\"");
+        const char *p = error->cause;
         while (*p) {
             if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
             else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
@@ -1068,9 +1143,13 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 
 #else
 
-/* Non-GNU: takes (r).u.error by value (not &(r).u.error), avoiding 'lvalue required'
- * on rvalue function calls like NUR_UNWRAP(f()).
- * Note: evaluate 'r' to a temporary variable if 'r' has non-trivial side effects. */
+/* Non-GNU: evaluates 'r' twice (once for .ok, once for .u.value / .u.error).
+ * IMPORTANT: Store the result in a named variable before calling if the
+ * expression has side effects (e.g., a function call with observable effects).
+ * Example safe usage:
+ *   NurResult_i32 _r = parse_int(str);
+ *   int val = NUR_UNWRAP(_r);
+ * See docs/PORTABILITY.md for full guidance. */
 #define NUR_UNWRAP(r) \
     (NUR_LIKELY((r).ok) \
         ? (r).u.value \
@@ -1129,15 +1208,32 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 
 /**
  * Get value or fallback if error.
- * 
+ *
+ * Single-evaluation on C11+ and MSVC (when _Generic is available) via typed
+ * inline functions (nur_unwrap_or_<suffix>). Evaluates 'r' exactly once.
+ * Fallback to ternary on strict C99 where pre-assigning to a variable is recommended.
+ *
  * Usage: int port = NUR_UNWRAP_OR(parse_port(str), 8080);
  */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || (defined(_MSC_VER) && _MSC_VER >= 1928)
+#define NUR_UNWRAP_OR(r, fallback) \
+    _Generic((r), \
+        NurResult_i32:   nur_unwrap_or_i32, \
+        NurResult_i64:   nur_unwrap_or_i64, \
+        NurResult_usize: nur_unwrap_or_usize, \
+        NurResult_f32:   nur_unwrap_or_f32, \
+        NurResult_f64:   nur_unwrap_or_f64, \
+        NurResult_cstr:  nur_unwrap_or_cstr, \
+        NurResult_ptr:   nur_unwrap_or_ptr \
+    )((r), (fallback))
+#else
 #define NUR_UNWRAP_OR(r, fallback) \
     (NUR_LIKELY((r).ok) ? (r).u.value : (fallback))
+#endif
 
 /**
  * Get option value or fallback if None.
- * 
+ *
  * Usage: int val = NUR_OPTION_UNWRAP_OR(opt, 0);
  */
 #define NUR_OPTION_UNWRAP_OR(o, fallback) \
@@ -1145,7 +1241,7 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 
 /**
  * Explicitly ignore a result - documents intent and suppresses warnings.
- * 
+ *
  * Usage: NUR_IGNORE(write_log(msg));
  */
 #define NUR_IGNORE(expr) ((void)(expr))
@@ -1154,6 +1250,174 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 
 /* Semantic alias for NUR_UNWRAP_OR */
 #define NUR_OR_ELSE(r, fallback) NUR_UNWRAP_OR((r), (fallback))
+
+/* Portable value-or alias (same semantics, more explicit name) */
+#define NUR_VALUE_OR(r, fallback) NUR_UNWRAP_OR((r), (fallback))
+
+/*============================================================================
+ * ERROR PREDICATES
+ *===========================================================================*/
+
+/**
+ * Test whether a nur_error_t has a specific error code.
+ *
+ * Usage:
+ *   nur_error_t e = NUR_ERROR_OF(r);
+ *   if (NUR_ERROR_IS(e, NUR_E_NOT_FOUND)) { ... }
+ */
+#define NUR_ERROR_IS(err, errcode_) ((err).code == (errcode_))
+
+/**
+ * Convenience alias: wrap an existing error with a new context string,
+ * creating a new nur_error_t that preserves original code, sys, message,
+ * file, func, line but replaces .context.
+ *
+ * This is an ergonomic alias for NUR_WRAP_ERROR (which preserves original
+ * source location). Use for adding caller context without losing the origin.
+ *
+ * Usage:
+ *   nur_error_t wrapped = NUR_ERROR_WRAP(NUR_ERROR_OF(r), "while parsing config");
+ *   return NUR_ERR(i32, wrapped);
+ */
+#define NUR_ERROR_WRAP(err_val, new_ctx) NUR_WRAP_ERROR((err_val), (new_ctx))
+
+/*============================================================================
+ * RESULT COMBINATORS  (NUR_MAP, NUR_AND_THEN)
+ *===========================================================================*/
+
+#if defined(NUR_GNU_EXTENSIONS)
+
+/**
+ * Map a successful result through a transform function, preserving error.
+ *
+ * NUR_MAP(result, func) evaluates result once. If Ok, applies func to the
+ * value and returns a new Ok with the result. If Err, returns the error.
+ *
+ * IMPORTANT: func must accept the payload type and return the SAME type.
+ * For type-changing maps, use NUR_AND_THEN with a wrapper function that
+ * returns the new NurResult_<suffix> type.
+ *
+ * GNU extension: uses statement expressions for single-evaluation.
+ *
+ * Usage:
+ *   static int double_it(int v) { return v * 2; }
+ *   NurResult_i32 r2 = NUR_MAP(r, double_it);
+ */
+#define NUR_MAP(result, func) \
+    __extension__ ({ \
+        __auto_type _nur_map_r_ = (result); \
+        if (_nur_map_r_.ok) { \
+            _nur_map_r_.u.value = (func)(_nur_map_r_.u.value); \
+        } \
+        _nur_map_r_; \
+    })
+
+/**
+ * Chain a result-returning function on a successful result.
+ *
+ * NUR_AND_THEN(result, func) evaluates result once. If Ok, calls func with
+ * the payload and returns its NurResult. If Err, passes the error through.
+ *
+ * func must have signature: NurResult_<same_suffix> func(<value_type>).
+ *
+ * GNU extension: uses statement expressions for single-evaluation.
+ *
+ * Usage:
+ *   NurResult_i32 parse_uid(int raw);  // some transform
+ *   NurResult_i32 r2 = NUR_AND_THEN(r, parse_uid);
+ */
+#define NUR_AND_THEN(result, func) \
+    __extension__ ({ \
+        __auto_type _nur_at_r_ = (result); \
+        _nur_at_r_.ok ? (func)(_nur_at_r_.u.value) : _nur_at_r_; \
+    })
+
+#else /* Non-GNU */
+
+/**
+ * NUR_MAP - Non-GNU version.
+ *
+ * NON-GNU LIMITATION: Without statement expressions, NUR_MAP cannot both
+ * transform the value and return the same result type in a single expression.
+ * On non-GNU compilers, use the explicit pattern instead:
+ *
+ *   if (NUR_IS_OK(r)) { r.u.value = (func)(r.u.value); }
+ *   // r now has the transformed value
+ *
+ * Or use NUR_AND_THEN which works on non-GNU (with double-eval caveat).
+ * For full NUR_MAP support, compile with GCC or Clang (-std=c11 or later).
+ *
+ * DOUBLE-EVAL NOTE: 'result' is evaluated TWICE. Pre-assign to a variable:
+ *   NurResult_i32 _r = compute();
+ *   NurResult_i32 r2 = NUR_AND_THEN(_r, your_result_returning_func);
+ *
+ * NUR_MAP is defined as a passthrough (returns result unchanged) on non-GNU.
+ */
+#define NUR_MAP(result, func) (result)
+/* Passthrough stub: the caller should apply (func) manually on success. */
+
+/**
+ * NUR_AND_THEN - Non-GNU version.
+ *
+ * Same double-evaluation caveat as NUR_UNWRAP_OR. Pre-assign result:
+ *   NurResult_i32 _r = compute();
+ *   NurResult_i32 r2 = NUR_AND_THEN(_r, parse_uid);
+ */
+#define NUR_AND_THEN(result, func) \
+    (NUR_IS_OK(result) ? (func)(NUR_VALUE(result)) : (result))
+
+#endif /* NUR_GNU_EXTENSIONS */
+
+/*============================================================================
+ * EARLY-RETURN HELPERS
+ *===========================================================================*/
+
+/**
+ * Return an error result from the enclosing function if expr is Err.
+ * The enclosing function's return type must be NurResult_void.
+ *
+ * This is a portable (no GNU extensions) early-return helper.
+ * It evaluates expr exactly once via a named temporary.
+ *
+ * Usage:
+ *   NUR_RETURN_IF_ERR(validate_input(buf));
+ */
+#define NUR_RETURN_IF_ERR(expr) \
+    do { \
+        NurResult_void _nur_rife_tmp_ = (NurResult_void)(expr); \
+        if (NUR_UNLIKELY(!_nur_rife_tmp_.ok)) { \
+            return _nur_rife_tmp_; \
+        } \
+    } while (0)
+
+/**
+ * Like NUR_CHECK but with an explicit message argument for more context.
+ * Returns NurResult_void error if condition is false.
+ *
+ * Usage:
+ *   NUR_CHECK_MSG(port > 0 && port < 65536, NUR_E_OUT_OF_RANGE, "port must be 1-65535");
+ */
+#define NUR_CHECK_MSG(cond, code, msg) \
+    do { \
+        if (NUR_UNLIKELY(!(cond))) { \
+            return nur_err_void(NUR_ERROR((code), (msg))); \
+        } \
+    } while (0)
+
+/**
+ * Like NUR_CHECK_AS but with an explicit message (typed return).
+ * Returns typed NurResult error if condition is false.
+ *
+ * Usage:
+ *   NUR_CHECK_AS_MSG(i32, size > 0, NUR_E_INVALID_ARGUMENT, "size must be positive");
+ */
+#define NUR_CHECK_AS_MSG(DestSuffix, cond, code, msg) \
+    do { \
+        if (NUR_UNLIKELY(!(cond))) { \
+            return nur_err_##DestSuffix(NUR_ERROR((code), (msg))); \
+        } \
+    } while (0)
+
 
 /**
  * Branch on error and bind error struct into err_var.
@@ -1339,12 +1603,20 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
         (lhs) = _ntg_.u.value; \
     } while (0)
 #else
-/* Non-GNU: expr is an lvalue, evaluated once via assignment. */
-#define NUR_TRY_GOTO(lhs, expr, errvar, label) \
+/* Non-GNU portable: user must pre-assign result to a named variable before
+ * passing to NUR_TRY_GOTO to avoid double-evaluation of expr.
+ * Example:
+ *   NurResult_i32 _r = parse_int(str);
+ *   NUR_TRY_GOTO(val, _r, err, cleanup);
+ * This is documented in docs/PORTABILITY.md.
+ */
+#define NUR_TRY_GOTO(lhs, expr_lval, errvar, label) \
     do { \
-        /* Requires expr to be an lvalue (store rvalues first). */ \
-        if (NUR_UNLIKELY(!(expr).ok)) { (errvar) = (expr).u.error; goto label; } \
-        (lhs) = (expr).u.value; \
+        if (NUR_UNLIKELY(!(expr_lval).ok)) { \
+            (errvar) = (expr_lval).u.error; \
+            goto label; \
+        } \
+        (lhs) = (expr_lval).u.value; \
     } while (0)
 #endif
 
@@ -1507,6 +1779,69 @@ NUR_INLINE void nur_free(void *ptr) {
 #endif /* !NUR_NO_STDLIB && !NUR_NO_ALLOC */
 
 /*============================================================================
+ * SCOPE-BASED RESOURCE CLEANUP (GCC/Clang __attribute__((cleanup)))
+ *===========================================================================*/
+
+#if defined(NUR_GNU_EXTENSIONS)
+
+NUR_INLINE void nur_internal_cleanup_free(void *ptr_to_ptr) {
+    if (ptr_to_ptr != NULL) {
+        void **pp = (void **)ptr_to_ptr;
+        if (*pp != NULL) {
+            free(*pp);
+            *pp = NULL;
+        }
+    }
+}
+
+#ifndef NUR_NO_STDIO
+NUR_INLINE void nur_internal_cleanup_fclose(void *ptr_to_file) {
+    if (ptr_to_file != NULL) {
+        FILE **fp = (FILE **)ptr_to_file;
+        if (*fp != NULL) {
+            fclose(*fp);
+            *fp = NULL;
+        }
+    }
+}
+#endif
+
+/**
+ * Attach automatic cleanup function to a variable when it leaves scope.
+ * Supported on GCC and Clang. On MSVC/standard C, use NUR_TRY_GOTO.
+ *
+ * Usage:
+ *   NUR_CLEANUP(free_buf) char *buf = malloc(64);
+ */
+#define NUR_CLEANUP(func) __attribute__((cleanup(func)))
+
+/**
+ * Automatically frees heap memory when pointer leaves scope.
+ *
+ * Usage:
+ *   NUR_AUTO_FREE char *buf = malloc(1024);
+ */
+#define NUR_AUTO_FREE __attribute__((cleanup(nur_internal_cleanup_free)))
+
+#ifndef NUR_NO_STDIO
+/**
+ * Automatically closes FILE stream when pointer leaves scope.
+ *
+ * Usage:
+ *   NUR_AUTO_FILE FILE *f = fopen("cfg.json", "r");
+ */
+#define NUR_AUTO_FILE __attribute__((cleanup(nur_internal_cleanup_fclose)))
+#endif
+
+#else /* Non-GNU / MSVC fallback */
+
+#define NUR_CLEANUP(func)
+#define NUR_AUTO_FREE
+#define NUR_AUTO_FILE
+
+#endif /* NUR_GNU_EXTENSIONS */
+
+/*============================================================================
  * ERROR PRINTING UTILITIES
  *===========================================================================*/
 
@@ -1532,6 +1867,10 @@ NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
     
     if (err->context) {
         fprintf(f, " (context: %s)", err->context);
+    }
+    
+    if (err->cause) {
+        fprintf(f, " (caused by: %s)", err->cause);
     }
     
     if (err->sys != 0) {
@@ -1567,6 +1906,34 @@ NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
  *   }
  */
 #define nur_error_eprint(err) nur_error_print((err), stderr)
+
+/**
+ * Stream structured JSON error directly to a FILE stream (e.g. stdout or file).
+ * Thread-safe, zero dynamic heap allocation. Appends a newline and flushes.
+ *
+ * Usage:
+ *   nur_error_log_json(&NUR_ERROR_OF(res), stderr);
+ */
+NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
+    if (err == NULL || f == NULL) return;
+    char buffer[512];
+    size_t len = nur_error_json(err, buffer, sizeof(buffer));
+    if (len < sizeof(buffer)) {
+        fputs(buffer, f);
+    } else {
+        fputs(buffer, f);
+    }
+    fputc('\n', f);
+    fflush(f);
+}
+
+/**
+ * Convenience macro: Stream structured JSON error directly to stderr.
+ *
+ * Usage:
+ *   nur_error_elog_json(&NUR_ERROR_OF(res));
+ */
+#define nur_error_elog_json(err) nur_error_log_json((err), stderr)
 
 #endif /* NUR_NO_STDIO */
 

@@ -1,0 +1,42 @@
+You are an AI coding assistant operating on a C codebase powered by nur.h.
+
+## Primary Objective
+Generate safe, robust, idiomatic C code that treats failure as an explicit, typed return value (NurResult<T>) rather than using sentinel values (-1, NULL, false) or implicit errno.
+
+## Core Invariants
+1. ALWAYS check NUR_IS_OK(r) before reading NUR_VALUE(r). Reading NUR_VALUE without checking is Undefined Behavior.
+2. Borrowed Reference Rule: .message, .context, and .cause in nur_error_t are borrowed references. ONLY pass static string literals (e.g. "invalid port") or pointers with lifetime exceeding the error consumer. NEVER pass ephemeral local stack buffers (char buf[64] from sprintf).
+3. Leak-Free Cleanup Rule: When acquiring heap memory, file descriptors, or mutexes, DO NOT use NUR_TRY_TO or NUR_TRY_AUTO (which perform an immediate early return). ALWAYS use NUR_TRY_GOTO(dest, expr, err, cleanup_label).
+4. Declare NUR_RESULT_TYPE(Type, suffix); once at file scope in a shared header, never inside function bodies or across duplicate .c files.
+5. In tests and assertions, prefer NUR_ASSERT_OK(r) or NUR_EXPECT(r, "context"). For non-critical default values, use NUR_OR_ELSE(r, fallback).
+
+## Canonical Code Template
+```c
+#include "nur.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+NUR_NODISCARD NurResult_i32 read_config_port(const char *path) {
+    NUR_CHECK_AS_MSG(i32, path != NULL, NUR_E_NULL_POINTER, "config path cannot be NULL");
+
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return NUR_ERR(i32, NUR_ERROR_ERRNO_CTX("failed to open file", path));
+    }
+
+    int port = 0;
+    nur_error_t err = {0};
+
+    NUR_TRY_GOTO(port, parse_port_file(f), err, cleanup);
+
+cleanup:
+    if (f) fclose(f);
+    if (err.code != NUR_E_NONE) return nur_err_i32(err);
+    return NUR_OK(i32, port);
+}
+```
+
+## Combinators
+- Transform values: NurResult_i32 r2 = NUR_MAP(r, square);
+- Chain results: NurResult_i32 next = NUR_AND_THEN(r, fetch_user_record);
+- Wrap context with root cause preservation: NUR_ERROR_WRAP(NUR_ERROR_OF(r), "in read_config()");
