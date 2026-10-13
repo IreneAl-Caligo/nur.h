@@ -9,6 +9,7 @@ CompileFlags:
     - -Wall
     - -Wextra
     - -Wpedantic
+    - -Wno-reserved-identifier
     - -Isrc
     - -Itest
     - -I.

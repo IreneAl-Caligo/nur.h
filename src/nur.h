@@ -27,9 +27,6 @@
 #define NUR_H_INCLUDED
 
 #if defined(_MSC_VER)
-#  ifndef _CRT_SECURE_NO_WARNINGS
-#    define _CRT_SECURE_NO_WARNINGS 1 /* NOLINT(bugprone-reserved-identifier) */
-#  endif
 #  pragma warning(disable: 4996)
 #  pragma warning(disable: 4714)
 #  pragma warning(disable: 4702)
@@ -662,8 +659,8 @@ NUR_INLINE const char *nur_error_context_at(const nur_error_t *err, size_t idx) 
  */
 NUR_INLINE nur_error_t nur_error_copy_msg(nur_error_t e, const char *src_str) {
 #ifndef NUR_COMPACT_ERRORS
-    size_t i = 0;
     if (src_str != (const char *)0) {
+        size_t i = 0;
         while (i < (NUR_ERROR_INLINE_MSG_SIZE - 1) && src_str[i] != '\0') {
             e.inline_msg[i] = src_str[i];
             i++;
@@ -1564,10 +1561,12 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
             static const char null_json[] = "{\"ok\":true}";
             size_t len = sizeof(null_json) - 1;
             size_t copy_len = (capacity > len) ? len : (capacity - 1);
-            size_t k = 0;
-            while (k < copy_len) {
-                buffer[k] = null_json[k];
-                k++;
+            if (copy_len > 0) {
+                size_t k;
+                /* cppcheck-suppress unsignedLessThanZero */
+                for (k = 0; k < copy_len; ++k) {
+                    buffer[k] = null_json[k];
+                }
             }
             buffer[copy_len] = '\0';
             return len;
