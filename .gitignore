@@ -15,6 +15,7 @@
 /test_*
 !test/*.c
 !test/*.h
+!test/*.cpp
 
 # Build directories
 build/
@@ -26,6 +27,7 @@ release/
 # IDE files
 .vscode/settings.json
 .vscode/launch.json
+.clangd/
 *.swp
 *.swo
 *~

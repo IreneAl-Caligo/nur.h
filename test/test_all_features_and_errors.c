@@ -201,6 +201,19 @@ static int test_intentional_file_errors(void) {
     if (!NUR_IS_OK(read_ok)) return 0;
     if (strcmp(NUR_VALUE(read_ok), "Sample file content for testing") != 0) return 0;
 
+    /* 6. Truncation guard test: buffer smaller than file content */
+    f = fopen(tmp_name, "w");
+    if (!f) return 0;
+    fputs("This is a long text that will not fit in a small buffer", f);
+    fclose(f);
+
+    char small_buf[16];
+    NurResult_cstr trunc_res = nur_file_read_text(tmp_name, small_buf, sizeof(small_buf));
+    remove(tmp_name);
+
+    if (NUR_IS_OK(trunc_res)) return 0; /* MUST NOT SUCCEED SILENTLY! */
+    if (NUR_ERROR_OF(trunc_res).code != NUR_E_TRUNCATED) return 0;
+
     return 1;
 }
 
@@ -217,6 +230,22 @@ static int test_error_chaining_and_json(void) {
     nur_error_t wrapped_err = NUR_ERROR_WRAP(root_err, "failed to send telemetry request");
 
     if (wrapped_err.code != NUR_E_CONNECTION) return 0;
+#ifdef NUR_COMPACT_ERRORS
+    if (wrapped_err.message == NULL) return 0;
+
+    /* Verify compact size: sizeof(NurResult_i32) is <= 24 bytes on 64-bit */
+    if (sizeof(nur_error_t) > 24) return 0;
+
+    /* 3. JSON Serialization */
+    char json_buffer[512];
+    int written = (int)nur_error_json(&wrapped_err, json_buffer, sizeof(json_buffer));
+    if (written <= 0) return 0;
+
+    if (strstr(json_buffer, "\"code\":") == NULL) return 0;
+    if (strstr(json_buffer, "\"name\":\"NUR_E_CONNECTION\"") == NULL) return 0;
+
+    return 1;
+#else
     if (strcmp(wrapped_err.context, "failed to send telemetry request") != 0) return 0;
     if (wrapped_err.cause == NULL || strcmp(wrapped_err.cause, "tcp://localhost:8080") != 0) return 0;
 
@@ -233,6 +262,7 @@ static int test_error_chaining_and_json(void) {
     if (strstr(json_buffer, "\"cause\":\"tcp://localhost:8080\"") == NULL) return 0;
 
     return 1;
+#endif
 }
 
 /* =========================================================================

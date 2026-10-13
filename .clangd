@@ -1,0 +1,73 @@
+# ==============================================================================
+# .clangd — LLVM / Clangd Language Server Configuration
+# Optimized for high-performance indexing, diagnostics, and multi-standard C/C++
+# ==============================================================================
+
+# Global Compiler Flags & Include Paths
+CompileFlags:
+  Add:
+    - -Wall
+    - -Wextra
+    - -Wpedantic
+    - -Isrc
+    - -Itest
+    - -I.
+
+---
+
+# C Language Translation Units (C11 standard default)
+If:
+  PathMatch: .*\.c$
+CompileFlags:
+  Add:
+    - -std=c11
+    - -xc
+
+---
+
+# C++ Language Translation Units (C++11 standard default)
+If:
+  PathMatch: .*\.(cpp|cc|cxx)$
+CompileFlags:
+  Add:
+    - -std=c++11
+    - -xc++
+
+---
+
+# Header Files (Default to C context with pedantic compatibility)
+If:
+  PathMatch: .*\.h$
+CompileFlags:
+  Add:
+    - -std=c11
+    - -xc-header
+
+---
+
+# Static Analysis & Clang-Tidy Diagnostics
+Diagnostics:
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - cert-*
+      - performance-*
+      - portability-*
+      - clang-analyzer-*
+    Remove:
+      - bugprone-macro-parentheses
+      - cert-dcl37-c
+      - cert-dcl51-cpp
+  UnusedIncludes: Strict
+
+---
+
+# Background Indexing & Editor Inlay Hints
+Index:
+  Background: Build
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+  Designators: true

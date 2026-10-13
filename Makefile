@@ -3,6 +3,7 @@
 
 # Compiler settings
 CC := gcc
+CXX := g++
 CFLAGS_BASE := -Wall -Wextra -Wpedantic -I. -Isrc
 CFLAGS_DEBUG := $(CFLAGS_BASE) -g -O0 -DDEBUG
 CFLAGS_RELEASE := $(CFLAGS_BASE) -O2 -DNDEBUG
@@ -12,7 +13,18 @@ CFLAGS_C89 := $(CFLAGS_DEBUG) -std=c89
 CFLAGS_C99 := $(CFLAGS_DEBUG) -std=c99
 CFLAGS_C11 := $(CFLAGS_DEBUG) -std=c11  
 CFLAGS_C17 := $(CFLAGS_DEBUG) -std=c17
-CFLAGS_C23 := $(CFLAGS_DEBUG) -std=c23
+
+# C23 detection with fallback to -std=c2x
+ifeq ($(OS),Windows_NT)
+    DEV_NULL := nul
+else
+    DEV_NULL := /dev/null
+endif
+C23_STD := $(shell $(CC) -std=c23 -E -x c $(DEV_NULL) > $(DEV_NULL) 2>&1 && echo -std=c23 || echo -std=c2x)
+ifeq ($(strip $(C23_STD)),)
+    C23_STD := -std=c23
+endif
+CFLAGS_C23 := $(CFLAGS_DEBUG) $(C23_STD)
 
 # Platform detection
 ifeq ($(OS),Windows_NT)
@@ -95,7 +107,7 @@ $(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
 
 # Run tests
 .PHONY: test
-test: $(TEST_BINARY) test-universal test-all-features
+test: $(TEST_BINARY) test-universal test-all-features test-freestanding test-compact test-standalone test-odr test-cpp
 	@echo "Running test suite..."
 	$(RUN_PREFIX)$(TEST_BINARY)
 
@@ -118,13 +130,13 @@ test-all: test-c89 test-c99 test-c11 test-c17 test-c23
 .PHONY: test-c89
 test-c89: $(HEADER)
 	@echo "Running C89 tests..."
-	$(CC) $(CFLAGS_C89) -o $(TEST_BINARY_C89) TEST/test_c89_and_purist.c
+	$(CC) $(CFLAGS_C89) -o $(TEST_BINARY_C89) test/test_c89_and_purist.c
 	$(RUN_PREFIX)$(TEST_BINARY_C89)
 
 .PHONY: test-purist
 test-purist: $(HEADER)
 	@echo "Running C-Purist pure-function tests..."
-	$(CC) $(CFLAGS_C11) -o $(TEST_BINARY_C89) TEST/test_c89_and_purist.c
+	$(CC) $(CFLAGS_C11) -o $(TEST_BINARY_C89) test/test_c89_and_purist.c
 	$(RUN_PREFIX)$(TEST_BINARY_C89)
 
 .PHONY: test-c99
@@ -185,20 +197,89 @@ else
 	fi
 endif
 
+.PHONY: test-freestanding
+test-freestanding: $(HEADER)
+	@echo "Verifying -ffreestanding mode compilation..."
+	$(CC) $(CFLAGS_BASE) -std=c11 -ffreestanding -DNUR_FREESTANDING -c test/test_standalone_include.c -o test_freestanding.o
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test_freestanding.o 2>nul
+else
+	@rm -f test_freestanding.o
+endif
+	@echo "Freestanding compilation check PASSED [OK]"
+
+.PHONY: test-compact
+test-compact: $(HEADER)
+	@echo "Running compact error mode test..."
+	$(CC) $(CFLAGS_C11) -DNUR_COMPACT_ERRORS -o test/test_compact$(EXE) test/test_all_features_and_errors.c
+	$(RUN_PREFIX)test/test_compact$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test\test_compact.exe 2>nul
+else
+	@rm -f test/test_compact$(EXE)
+endif
+	@echo "Compact errors test PASSED [OK]"
+
+.PHONY: test-standalone
+test-standalone: $(HEADER)
+	@echo "Running standalone include test..."
+	$(CC) $(CFLAGS_C11) -o test/test_standalone_include$(EXE) test/test_standalone_include.c
+	$(RUN_PREFIX)test/test_standalone_include$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test\test_standalone_include.exe 2>nul
+else
+	@rm -f test/test_standalone_include$(EXE)
+endif
+	@echo "Standalone include check PASSED [OK]"
+
+.PHONY: test-odr
+test-odr: $(HEADER)
+	@echo "Running multi-TU ODR linkage test..."
+	$(CC) $(CFLAGS_C11) -c test/test_odr_tu1.c -o test_odr_tu1.o
+	$(CC) $(CFLAGS_C11) -c test/test_odr_tu2.c -o test_odr_tu2.o
+	$(CC) $(CFLAGS_C11) -o test_odr$(EXE) test_odr_tu1.o test_odr_tu2.o
+	$(RUN_PREFIX)test_odr$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test_odr_tu1.o test_odr_tu2.o test_odr.exe 2>nul
+else
+	@rm -f test_odr_tu1.o test_odr_tu2.o test_odr$(EXE)
+endif
+	@echo "Multi-TU (ODR) safety test PASSED [OK]"
+
+.PHONY: test-cpp
+test-cpp: $(HEADER)
+	@echo "Running C++ compatibility & smoke test..."
+	$(CXX) -std=c++11 -Wall -Wextra -Wpedantic -I. -Isrc -o test_cpp$(EXE) test/test_cpp_smoke.cpp
+	$(RUN_PREFIX)test_cpp$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test_cpp.exe 2>nul
+else
+	@rm -f test_cpp$(EXE)
+endif
+	@echo "C++ compatibility test PASSED [OK]"
+
 # AddressSanitizer and UndefinedBehaviorSanitizer
 .PHONY: test-asan
 test-asan:
 	@echo "Running tests with AddressSanitizer and UndefinedBehaviorSanitizer..."
 	$(CC) $(CFLAGS_BASE) -std=c11 -fsanitize=address,undefined -g -o test_asan$(EXE) $(TEST_SRC)
 	$(RUN_PREFIX)test_asan$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test_asan$(EXE) 2>nul
+else
 	@rm -f test_asan$(EXE)
+endif
 
 .PHONY: test-ubsan
 test-ubsan:
 	@echo "Running tests with UndefinedBehaviorSanitizer..."
 	$(CC) $(CFLAGS_BASE) -std=c11 -fsanitize=undefined -g -o test_ubsan$(EXE) $(TEST_SRC)
 	$(RUN_PREFIX)test_ubsan$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test_ubsan$(EXE) 2>nul
+else
 	@rm -f test_ubsan$(EXE)
+endif
 
 # Memory testing with Valgrind (if available)
 .PHONY: test-valgrind
@@ -245,10 +326,10 @@ format-check:
 .PHONY: clean
 clean:
 ifeq ($(OS),Windows_NT)
-	-cmd /C del /Q /F $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY) *.o *.exe 2>nul
+	-cmd /C del /Q /F $(TEST_BINARY) $(TEST_BINARY_C89) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY) *.o *.exe test\*.exe test\*.o bench_nur bench_nur.exe 2>nul
 else
-	rm -f $(TEST_BINARY) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY)
-	rm -f *.o *.exe
+	rm -f $(TEST_BINARY) $(TEST_BINARY_C89) $(TEST_BINARY_C99) $(TEST_BINARY_C11) $(TEST_BINARY_C17) $(TEST_BINARY_C23) $(C23_TEST_BINARY)
+	rm -f *.o *.exe test/*.exe test/*.o bench_nur bench_nur.exe
 endif
 
 # Development workflow
@@ -301,15 +382,15 @@ docs-coverage: $(TEST_BINARY)
 
 # Benchmark tests (if available)
 .PHONY: benchmark
-benchmark:
+benchmark: $(HEADER)
 	@echo "Running benchmarks..."
-	@if [ -f benchmarks/bench_nur.c ]; then \
-		$(CC) $(CFLAGS_RELEASE) -o bench_nur benchmarks/bench_nur.c; \
-		./bench_nur; \
-		rm -f bench_nur; \
-	else \
-		echo "Benchmark tests not found"; \
-	fi
+	$(CC) $(CFLAGS_RELEASE) -o bench_nur$(EXE) benchmarks/bench_nur.c
+	$(RUN_PREFIX)bench_nur$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F bench_nur$(EXE) 2>nul
+else
+	@rm -f bench_nur$(EXE)
+endif
 
 # Install header (for system-wide installation)
 .PHONY: install

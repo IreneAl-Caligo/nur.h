@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
-project(nur VERSION 1.3.0 LANGUAGES C CXX)
+project(nur VERSION 1.3.1 LANGUAGES C CXX)
+
+# Standard GNU install directories & package helpers
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 # Header-only interface library target
 add_library(nur INTERFACE)
@@ -9,10 +13,6 @@ target_include_directories(nur INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-
-# Standard GNU install directories
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
 
 # Generate Package Version File
 write_basic_package_version_file(
@@ -29,7 +29,9 @@ configure_package_config_file(
 )
 
 # Installation specification
-install(TARGETS nur EXPORT nurTargets)
+install(TARGETS nur EXPORT nurTargets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 install(FILES src/nur.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Install CMake package config files

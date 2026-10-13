@@ -113,6 +113,13 @@ typedef struct {
 
 NUR_RESULT_TYPE(Point, point);
 
+typedef struct {
+    int app_code;
+    const char *detail;
+} CustomErr;
+
+NUR_RESULT_TYPE_E(int, CustomErr, custom_e);
+
 static int test_custom_result_type(void) {
     Point p = {10, 20};
     NurResult_point ok_point = NUR_OK(point, p);
@@ -505,12 +512,16 @@ static int test_panic_handler(void) {
 static int test_void_result_flat_layout(void) {
     NurResult_void ok_v = nur_ok_void();
     if (!NUR_IS_OK(ok_v)) return 0;
+    NUR_UNWRAP_VOID(ok_v);
+    NUR_EXPECT_VOID(ok_v, "expected ok void");
 
     nur_error_t my_err = NUR_ERROR(NUR_E_BUSY, "resource locked");
     NurResult_void err_v = nur_err_void(my_err);
     if (NUR_IS_OK(err_v)) return 0;
+    if (NUR_ERROR_OF(err_v).code != NUR_E_BUSY) return 0;
     if (err_v.error.code != NUR_E_BUSY) return 0;
     if (strcmp(err_v.error.message, "resource locked") != 0) return 0;
+    if (strcmp(NUR_ERROR_OF(err_v).message, "resource locked") != 0) return 0;
 
     return 1;
 }
@@ -568,6 +579,52 @@ static int test_ergonomic_helpers(void) {
     return 1;
 }
 
+static int test_custom_error_type_e(void) {
+    CustomErr ce;
+    ce.app_code = 404;
+    ce.detail = "Not found in cache";
+    NurResult_custom_e res_err = nur_err_custom_e(ce);
+    if (NUR_IS_OK(res_err)) return 0;
+    if (nur_error_custom_e(res_err).app_code != 404) return 0;
+    if (strcmp(nur_error_custom_e(res_err).detail, "Not found in cache") != 0) return 0;
+
+    NurResult_custom_e res_ok = nur_ok_custom_e(1234);
+    if (!NUR_IS_OK(res_ok)) return 0;
+    if (NUR_VALUE(res_ok) != 1234) return 0;
+    if (nur_unwrap_or_custom_e(res_err, 999) != 999) return 0;
+    return 1;
+}
+
+static int test_option_combinators_and_types(void) {
+    NurOption_i32 opt_some = NUR_SOME(i32, 77);
+    NurOption_i32 opt_none = NUR_NONE(i32);
+
+    /* 1. NUR_OK_OR */
+    NurResult_i32 r_from_some = NUR_OK_OR(i32, opt_some, NUR_ERROR(NUR_E_NOT_FOUND, "missing"));
+    if (!NUR_IS_OK(r_from_some) || NUR_VALUE(r_from_some) != 77) return 0;
+
+    NurResult_i32 r_from_none = NUR_OK_OR(i32, opt_none, NUR_ERROR(NUR_E_NOT_FOUND, "missing"));
+    if (NUR_IS_OK(r_from_none) || NUR_ERROR_OF(r_from_none).code != NUR_E_NOT_FOUND) return 0;
+
+    /* 2. NUR_UNWRAP_OPTION */
+    int unwrapped = NUR_UNWRAP_OPTION(opt_some);
+    if (unwrapped != 77) return 0;
+
+    /* 3. Predefined extended types */
+    NurResult_i8 r_i8 = NUR_OK(i8, (int8_t)-8);
+    if (!NUR_IS_OK(r_i8) || NUR_VALUE(r_i8) != -8) return 0;
+    NurResult_u8 r_u8 = NUR_OK(u8, (uint8_t)250);
+    if (!NUR_IS_OK(r_u8) || NUR_VALUE(r_u8) != 250) return 0;
+    NurResult_i16 r_i16 = NUR_OK(i16, (int16_t)-1600);
+    if (!NUR_IS_OK(r_i16) || NUR_VALUE(r_i16) != -1600) return 0;
+    NurResult_u16 r_u16 = NUR_OK(u16, (uint16_t)65000);
+    if (!NUR_IS_OK(r_u16) || NUR_VALUE(r_u16) != 65000) return 0;
+    NurResult_cstr_const r_cc = NUR_OK(cstr_const, "const string literal");
+    if (!NUR_IS_OK(r_cc) || strcmp(NUR_VALUE(r_cc), "const string literal") != 0) return 0;
+
+    return 1;
+}
+
 int main(void) {
     printf("=== nur.h Library Test Suite ===\n\n");
     
@@ -600,6 +657,8 @@ int main(void) {
     TEST(void_result_flat_layout);
     TEST(assert_helpers);
     TEST(ergonomic_helpers);
+    TEST(custom_error_type_e);
+    TEST(option_combinators_and_types);
     
     printf("\n=== Test Results ===\n");
     printf("Tests run: %d\n", tests_run);

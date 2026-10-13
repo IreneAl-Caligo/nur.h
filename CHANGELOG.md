@@ -5,6 +5,24 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-10-13
+
+### Added
+- **C++11/14/17/20/23 Universal Single-Token Constructor**: Full C++ template traits (`_nur_cpp_result_traits`) and overloads allowing `NUR_H(val)` and `NUR_OK(val)` to be used transparently in C++ without relying on C11 `_Generic`.
+- **Standalone Header Smoke Test (`test/test_standalone_include.c`)**: Verifies that `src/nur.h` compiles with zero pre-included headers.
+- **Multi-Translation Unit & ODR Safety Suite (`test/test_odr_tu1.c`, `test/test_odr_tu2.c`)**: Verifies multi-TU compilation and linking with zero duplicate symbol linker errors.
+- **Dedicated C++ Smoke & Compatibility Suite (`test/test_cpp_smoke.cpp`)**: Verified across C++11 and C++17.
+- **CLI Feature Parity**: Full parity between `tools/nur-cc.c` and `tools/nur-cc` bash script including `--lint`, `--new`, `--wrap`, and `--examples`.
+
+### Fixed
+- **Silent File Truncation Prevention (`nur_file_read_text`)**: Now inspects `fgetc(f) != EOF` when buffer capacity is reached; explicitly returns `NUR_E_TRUNCATED` error instead of silently returning truncated content.
+- **CMake Packaging Order**: Moved `include(GNUInstallDirs)` before `target_include_directories` so `${CMAKE_INSTALL_INCLUDEDIR}` is properly defined, and added `INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}` for exported downstream targets.
+- **NUR_FREESTANDING Support**: Explicit flag handling to decouple hosted headers in bare-metal environments.
+- **ANSI C89 Pure Compatibility**: Added `NUR_NO_STDINT` typedef fallback for environments lacking `<stdint.h>`.
+- **Case-Sensitive Linux Makefile Compatibility**: Fixed `TEST/` path to lowercase `test/` preventing Linux build breakages.
+- **AI Linter Heuristic Clarification**: Comment stripping before syntax audit and clear heuristic identification in `tools/nur-cc`.
+- **CI Workflow Location**: Moved workflow file from `.ci/ci.yml` to standard `.github/workflows/ci.yml`.
+
 ## [1.3.0] - 2026-10-13
 
 ### Added
@@ -121,4 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (26 unit tests + 7 C23 feature tests)
 - Full GitHub Actions CI matrix for GCC, Clang, and MSVC
 
+[1.3.0]: https://github.com/IreneAl-Caligo/nur.h/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/IreneAl-Caligo/nur.h/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/IreneAl-Caligo/nur.h/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/IreneAl-Caligo/nur.h/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/IreneAl-Caligo/nur.h/releases/tag/v1.0.0

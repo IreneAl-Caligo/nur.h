@@ -318,18 +318,35 @@ int main(int argc, char **argv) {
             }
         }
 
-        /* Check for NUR_IS_OK tracking */
-        if (strstr(line, "NUR_IS_OK") != NULL) {
+        /* Strip line comments for heuristic checks */
+        char code_buf[1024];
+        strncpy(code_buf, line, sizeof(code_buf) - 1);
+        code_buf[sizeof(code_buf) - 1] = '\0';
+        char *comment = strstr(code_buf, "//");
+        if (comment) *comment = '\0';
+        char *bcomment = strstr(code_buf, "/*");
+        if (bcomment) {
+            char *ecomment = strstr(bcomment, "*/");
+            if (ecomment) {
+                memset(bcomment, ' ', (size_t)(ecomment - bcomment + 2));
+            } else {
+                *bcomment = '\0';
+            }
+        }
+
+        /* Check for NUR_IS_OK tracking (heuristic) */
+        if (strstr(code_buf, "NUR_IS_OK") != NULL || strstr(code_buf, "nur_is_ok") != NULL ||
+            strstr(code_buf, "NUR_IS_ERR") != NULL || strstr(code_buf, "nur_is_err") != NULL) {
             last_was_ok_check = true;
-        } else if (strstr(line, "NUR_VALUE(") != NULL) {
-            if (!last_was_ok_check && strstr(line, "NUR_UNWRAP") == NULL && strstr(line, "if") == NULL) {
+        } else if (strstr(code_buf, "NUR_VALUE(") != NULL || strstr(code_buf, "nur_value_") != NULL) {
+            if (!last_was_ok_check && strstr(code_buf, "NUR_UNWRAP") == NULL && strstr(code_buf, "if") == NULL) {
                 if (lang == LANG_BN) {
-                    printf("\033[1;33m⚠️  [nur.h AI Linter] লাইন %d: NUR_VALUE ডাকার আগে NUR_IS_OK চেক করা হয়েছে কি না নিশ্চিত করুন!\033[0m\n", line_num);
+                    printf("\033[1;33m⚠️  [nur.h AI Linter (হিউরিস্টিক)] লাইন %d: NUR_VALUE ডাকার আগে NUR_IS_OK চেক করা হয়েছে কি না নিশ্চিত করুন!\033[0m\n", line_num);
                 } else {
-                    printf("\033[1;33m⚠️  [nur.h AI Linter] Line %d: Ensure NUR_IS_OK is verified before calling NUR_VALUE!\033[0m\n", line_num);
+                    printf("\033[1;33m⚠️  [nur.h AI Linter (Heuristic)] Line %d: Ensure NUR_IS_OK is verified before calling NUR_VALUE!\033[0m\n", line_num);
                 }
             }
-        } else if (strchr(line, '}') != NULL) {
+        } else if (strchr(code_buf, '}') != NULL) {
             last_was_ok_check = false;
         }
     }
