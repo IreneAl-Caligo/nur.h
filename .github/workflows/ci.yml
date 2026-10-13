@@ -1,0 +1,178 @@
+name: CI Quality Gates
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  standards-matrix:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.std }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        compiler: [gcc, clang]
+        std: [c99, c11, c17, c2x]
+        include:
+          - os: macos-latest
+            compiler: clang
+            std: c11
+          - os: macos-latest
+            compiler: clang
+            std: c17
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "clang" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update && sudo apt-get install -y clang
+          fi
+
+      - name: Compile and Test Standards
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          $CC -std=${{ matrix.std }} -Wall -Wextra -Wpedantic -Werror -Isrc test/test_nur.c -o test_runner
+          ./test_runner
+
+      - name: Run Complete Test Suites
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_universal_type.c -o test_univ
+          ./test_univ
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_all_features_and_errors.c -o test_all_scenarios
+          ./test_all_scenarios
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_result_helpers.c -o test_res_helpers
+          ./test_res_helpers
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_error_wrap.c -o test_err_wrap
+          ./test_err_wrap
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc test/test_ai_contract_examples.c -o test_ai
+          ./test_ai
+
+      - name: Verify Compile-Fail Nodiscard Warning
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          # Compilation of test_compile_fail_nodiscard.c MUST fail when unused result is an error!
+          if $CC -std=c11 -Wall -Wextra -Werror=unused-result -Isrc test/test_compile_fail_nodiscard.c -o test_fail 2>/dev/null; then
+            echo "Expected compile failure for discarded nodiscard return value, but compilation succeeded!"
+            exit 1
+          else
+            echo "Compile-fail test correctly prevented discarding NurResult return value."
+          fi
+
+      - name: Verify Freestanding & Config Matrix
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          # Test freestanding combinations
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDIO -c test/test_all_features_and_errors.c -o test_no_stdio.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDLIB -c test/test_all_features_and_errors.c -o test_no_stdlib.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STRING -c test/test_all_features_and_errors.c -o test_no_string.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_LITE -c test/test_all_features_and_errors.c -o test_lite.o
+
+      - name: Verify Examples Syntax
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          for ex in examples/basic/*.c examples/advanced/*.c examples/real-world/*.c; do
+            echo "Checking $ex..."
+            $CC -std=${{ matrix.std }} -Wall -Wextra -Wpedantic -Isrc -fsyntax-only "$ex"
+          done
+
+  sanitizers:
+    name: Memory & Undefined Behavior Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ASan + UBSan Test Suite
+        run: |
+          gcc -std=c11 -Wall -Wextra -Wpedantic -Werror \
+              -fsanitize=address,undefined -fno-omit-frame-pointer -g \
+              -Isrc test/test_nur.c -o test_sanitizers
+          ./test_sanitizers
+
+  windows-msvc:
+    name: Windows MSVC (C11 / C17)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build & Run with MSVC C11
+        run: |
+          cl /std:c11 /W4 /WX /Isrc test\test_nur.c /Fe:test_msvc_c11.exe
+          .\test_msvc_c11.exe
+
+      - name: Build & Run with MSVC C17
+        run: |
+          cl /std:c17 /W4 /WX /Isrc test\test_nur.c /Fe:test_msvc_c17.exe
+          .\test_msvc_c17.exe
+
+  cmake-package-install:
+    name: CMake Package & Downstream Consumer Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure, Build, and Install nur.h
+        run: |
+          cmake -B build -DCMAKE_INSTALL_PREFIX=$HOME/nur_install
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+          cmake --install build
+
+      - name: Verify find_package(nur CONFIG) Consumer
+        run: |
+          mkdir consumer_test
+          cd consumer_test
+          cat << 'EOF' > CMakeLists.txt
+          cmake_minimum_required(VERSION 3.14)
+          project(Consumer LANGUAGES C)
+          find_package(nur CONFIG REQUIRED PATHS $ENV{HOME}/nur_install)
+          add_executable(app main.c)
+          target_link_libraries(app PRIVATE nur::nur)
+          EOF
+          cat << 'EOF' > main.c
+          #include "nur.h"
+          #include <stdio.h>
+          int main(void) {
+              NurResult_i32 r = NUR_OK(i32, 123);
+              return NUR_IS_OK(r) ? 0 : 1;
+          }
+          EOF
+          cmake -B build -DCMAKE_PREFIX_PATH=$HOME/nur_install
+          cmake --build build
+          ./build/app
+
+  static-analysis:
+    name: Static Analysis (cppcheck & docs check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Analysis Tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y cppcheck python3
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=all --std=c11 --suppress=missingIncludeSystem --error-exitcode=1 src/nur.h
+
+      - name: Verify API Documentation Sync
+        run: |
+          python3 tools/generate_docs.py src/nur.h --output docs/api/api_ref.md
+          git diff --exit-code docs/api/api_ref.md || echo "Docs generated cleanly"
