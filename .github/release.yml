@@ -1,0 +1,32 @@
+# GitHub Automatic Release Notes Configuration
+# Reference: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  categories:
+    - title: "🚀 Features & API Enhancements"
+      labels:
+        - "feature"
+        - "enhancement"
+    - title: "🛡️ Security Hardening & Bug Fixes"
+      labels:
+        - "security"
+        - "bug"
+        - "fix"
+    - title: "⚡ Performance & Benchmarks"
+      labels:
+        - "performance"
+        - "benchmark"
+    - title: "📚 Documentation & Examples"
+      labels:
+        - "documentation"
+        - "examples"
+    - title: "🔧 Build System & Toolchain"
+      labels:
+        - "build"
+        - "tooling"
+        - "ci"
+  exclude:
+    labels:
+      - "ignore-for-release"
+      - "duplicate"
+      - "wontfix"

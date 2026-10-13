@@ -15,7 +15,23 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
 <div align="center">
   <br>
   <img src="assets/demo.svg" alt="nur.h 5-Second Interactive Terminal Demo" width="94%">
-  <br>
+  <br><br>
+  <details>
+    <summary><b>🎬 Toggle Specialized Feature Demos (<code>NUR_H</code>, <code>NUR_OK</code>, Native C, C++11)</b></summary>
+    <br>
+    <p align="left"><b>1. Universal Single-Token Constructor (<code>NUR_H(val)</code> in C11+)</b></p>
+    <img src="assets/demo_nur_h.svg" alt="NUR_H Universal Constructor Demo" width="94%">
+    <br><br>
+    <p align="left"><b>2. Explicit Cross-Standard Constructor (<code>NUR_OK(suffix, val)</code> in C89–C23)</b></p>
+    <img src="assets/demo_nur_ok.svg" alt="NUR_OK Constructor Demo" width="94%">
+    <br><br>
+    <p align="left"><b>3. Native Standard C Super-Header (Zero Extra Headers &amp; Bare-Metal Speed)</b></p>
+    <img src="assets/demo_native.svg" alt="Native Standard C Demo" width="94%">
+    <br><br>
+    <p align="left"><b>4. Modern C++ Integration (<code>namespace nur</code> in C++11+)</b></p>
+    <img src="assets/demo_cpp.svg" alt="Modern C++ Demo" width="94%">
+    <br>
+  </details>
 </div>
 
 ---
@@ -131,6 +147,12 @@ NurResult_i32 divide(int a, int b) {
     return NUR_OK(i32, a / b); /* or NUR_H(a / b) in C11+ */
 }
 ```
+
+<details>
+<summary><b>📺 Interactive Terminal Demo: Standard <code>NUR_OK</code> Constructor</b></summary>
+<br>
+<img src="assets/demo_nur_ok.svg" alt="NUR_OK Live Demo" width="100%">
+</details>
 </details>
 
 <details>
@@ -210,6 +232,12 @@ return NUR_H(42);   /* or NUR_OK(42) */
 if (nur_is_ok_i32(res)) { int val = nur_value_i32(res); }
 ```
 
+<details>
+<summary><b>📺 Interactive Terminal Demo: Universal <code>NUR_H</code> Auto-Dispatch</b></summary>
+<br>
+<img src="assets/demo_nur_h.svg" alt="NUR_H Live Demo" width="100%">
+</details>
+
 ---
 
 ## 📋 Common Patterns Cheat Sheet
@@ -269,6 +297,12 @@ int main(void) {
     return 0;
 }
 ```
+
+<details>
+<summary><b>📺 Interactive Terminal Demo: Native Standard C Super-Header</b></summary>
+<br>
+<img src="assets/demo_native.svg" alt="Native Standard C Demo" width="100%">
+</details>
 
 ### 🏎️ How to Apply `nur.h` Across High-Performance Domains:
 
@@ -487,6 +521,12 @@ int main() {
 
 - **Zero runtime overhead**: Template traits and inline functions optimize down to identical machine instructions as native C.
 - **Header-only compatibility**: Can be freely included in mixed C and C++ translation units.
+
+<details>
+<summary><b>📺 Interactive Terminal Demo: Modern C++11+ (<code>namespace nur</code>)</b></summary>
+<br>
+<img src="assets/demo_cpp.svg" alt="Modern C++ Live Demo" width="100%">
+</details>
 
 ---
 

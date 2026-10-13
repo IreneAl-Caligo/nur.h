@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 350" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad-h" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1117" />
+      <stop offset="100%" stop-color="#161b22" />
+    </linearGradient>
+    <filter id="shadow-h" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <style>
+    @keyframes typing-code-h {
+      0%, 100% { opacity: 0; }
+      8%, 98% { opacity: 1; }
+    }
+    @keyframes typing-cmd2-h {
+      0%, 28% { opacity: 0; }
+      32%, 98% { opacity: 1; }
+    }
+    @keyframes compile-output-h {
+      0%, 46% { opacity: 0; }
+      48%, 98% { opacity: 1; }
+    }
+    @keyframes typing-cmd3-h {
+      0%, 56% { opacity: 0; }
+      60%, 98% { opacity: 1; }
+    }
+    @keyframes exec-output-h {
+      0%, 70% { opacity: 0; }
+      72%, 98% { opacity: 1; }
+    }
+    @keyframes cursor-blink-h {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    .term-text {
+      font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+      font-size: 13.5px;
+      line-height: 22px;
+    }
+    .prompt { fill: #58a6ff; font-weight: bold; }
+    .cmd { fill: #f0f6fc; }
+    .keyword { fill: #ff7b72; font-weight: bold; }
+    .type { fill: #ffa657; }
+    .func { fill: #d2a8ff; }
+    .str { fill: #a5d6ff; }
+    .comment { fill: #8b949e; font-style: italic; }
+    .success { fill: #3fb950; font-weight: bold; }
+    .metric { fill: #e3b341; font-weight: bold; }
+    .cursor { fill: #58a6ff; animation: cursor-blink-h 0.8s infinite; }
+
+    .anim-code { animation: typing-code-h 6s infinite; }
+    .anim-cmd2 { animation: typing-cmd2-h 6s infinite; }
+    .anim-compile { animation: compile-output-h 6s infinite; }
+    .anim-cmd3 { animation: typing-cmd3-h 6s infinite; }
+    .anim-exec { animation: exec-output-h 6s infinite; }
+  </style>
+
+  <!-- Container -->
+  <rect x="20" y="16" width="840" height="318" rx="12" fill="url(#bg-grad-h)" stroke="#30363d" stroke-width="1.5" filter="url(#shadow-h)"/>
+
+  <!-- Title Bar -->
+  <path d="M 20 28 Q 20 16 32 16 L 848 16 Q 860 16 860 28 L 860 52 L 20 52 Z" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <line x1="20" y1="52" x2="860" y2="52" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Traffic Lights -->
+  <circle cx="44" cy="34" r="6" fill="#ff5f56" stroke="#e0443e" stroke-width="0.5"/>
+  <circle cx="64" cy="34" r="6" fill="#ffbd2e" stroke="#dea123" stroke-width="0.5"/>
+  <circle cx="84" cy="34" r="6" fill="#27c93f" stroke="#1aab29" stroke-width="0.5"/>
+
+  <!-- Window Title -->
+  <text x="440" y="38" text-anchor="middle" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="500">
+    bash — Universal Constructor: NUR_H(val) in C11+
+  </text>
+
+  <!-- Terminal Content -->
+  <g class="term-text" transform="translate(45, 80)">
+    <!-- Code Preview -->
+    <g class="anim-code">
+      <text x="0" y="0">
+        <tspan class="prompt">❯ </tspan>
+        <tspan class="cmd">cat demo_nur_h.c</tspan>
+      </text>
+      <text x="0" y="24">
+        <tspan class="keyword">#include </tspan><tspan class="str">"nur.h"</tspan>
+      </text>
+      <text x="0" y="46">
+        <tspan class="type">NurResult_i32</tspan> <tspan class="func">get_value</tspan>(<tspan class="type">void</tspan>) { <tspan class="keyword">return</tspan> <tspan class="func">NUR_H</tspan>(<tspan class="metric">42</tspan>); } <tspan class="comment">/* C11 _Generic auto-deduction */</tspan>
+      </text>
+      <text x="0" y="68">
+        <tspan class="type">int</tspan> <tspan class="func">main</tspan>(<tspan class="type">void</tspan>) { <tspan class="func">printf</tspan>(<tspan class="str">"Value: %d\n"</tspan>, <tspan class="func">NUR_VALUE</tspan>(<tspan class="func">get_value</tspan>())); <tspan class="keyword">return</tspan> <tspan class="metric">0</tspan>; }
+      </text>
+    </g>
+
+    <!-- Compile -->
+    <g class="anim-cmd2" transform="translate(0, 94)">
+      <text x="0" y="0">
+        <tspan class="prompt">❯ </tspan>
+        <tspan class="cmd">gcc -std=c11 -Wall -Wextra -Wpedantic demo_nur_h.c -o demo_nur_h</tspan>
+      </text>
+    </g>
+
+    <g class="anim-compile" transform="translate(0, 118)">
+      <text x="0" y="0">
+        <tspan class="success">✓ Compile Clean:</tspan>
+        <tspan fill="#8b949e"> Zero warnings, compile-time dispatched to NurResult_i32</tspan>
+      </text>
+    </g>
+
+    <!-- Run -->
+    <g class="anim-cmd3" transform="translate(0, 148)">
+      <text x="0" y="0">
+        <tspan class="prompt">❯ </tspan>
+        <tspan class="cmd">./demo_nur_h</tspan>
+      </text>
+    </g>
+
+    <!-- Exec Output -->
+    <g class="anim-exec" transform="translate(0, 174)">
+      <rect x="0" y="-14" width="70" height="20" rx="4" fill="#238636" opacity="0.9"/>
+      <text x="35" y="0" text-anchor="middle" fill="#ffffff" font-weight="bold" font-size="11.5">SUCCESS</text>
+      <text x="82" y="0" fill="#f0f6fc">
+        Value: <tspan class="metric">42</tspan>
+        <tspan fill="#8b949e">  │  Type: </tspan><tspan fill="#79c0ff">NurResult_i32</tspan>
+        <tspan fill="#8b949e">  │  Dispatch: </tspan><tspan class="metric">Compile-time</tspan>
+      </text>
+
+      <rect x="0" y="14" width="70" height="20" rx="4" fill="#8957e5" opacity="0.9"/>
+      <text x="35" y="28" text-anchor="middle" fill="#ffffff" font-weight="bold" font-size="11.5">GENERIC</text>
+      <text x="82" y="28" fill="#f0f6fc">
+        Also supports: <tspan class="func">NUR_H</tspan>(<tspan class="str">"text"</tspan>), <tspan class="func">NUR_H</tspan>(<tspan class="metric">3.14</tspan>), <tspan class="func">NUR_H</tspan>(<tspan class="func">ptr</tspan>), <tspan class="func">NUR_H</tspan>(<tspan class="keyword">true</tspan>)
+      </text>
+
+      <text x="0" y="60">
+        <tspan class="prompt">❯ </tspan>
+        <rect x="18" y="48" width="8" height="15" class="cursor"/>
+      </text>
+    </g>
+  </g>
+</svg>
