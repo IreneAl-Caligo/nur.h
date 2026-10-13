@@ -14,6 +14,19 @@
  * all standard library headers out-of-the-box! */
 #include "../src/nur.h"
 
+#if defined(NUR_NO_STDIO) || defined(NUR_NO_STDLIB) || defined(NUR_NO_STRING) || defined(NUR_LITE)
+
+/* Minimal standalone smoke test when standard headers are disabled */
+int main(void) {
+    NurResult_i32 res = nur_ok_i32(42);
+    if (!NUR_IS_OK(res)) {
+        return 1;
+    }
+    return 0;
+}
+
+#else
+
 static int tests_run = 0;
 static int tests_passed = 0;
 
@@ -337,3 +350,4 @@ int main(void) {
         return 1;
     }
 }
+#endif

@@ -5,6 +5,13 @@
  * including Result types, error propagation, and utility functions.
  */
 
+#if defined(_MSC_VER)
+#  ifndef _CRT_SECURE_NO_WARNINGS
+#    define _CRT_SECURE_NO_WARNINGS 1
+#  endif
+#  pragma warning(disable: 4996)
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

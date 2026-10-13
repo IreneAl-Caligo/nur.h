@@ -26,6 +26,13 @@
 #ifndef NUR_H_INCLUDED
 #define NUR_H_INCLUDED
 
+#if defined(_MSC_VER)
+#  ifndef _CRT_SECURE_NO_WARNINGS
+#    define _CRT_SECURE_NO_WARNINGS 1
+#  endif
+#  pragma warning(disable: 4996)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -539,7 +546,6 @@ NUR_INLINE const char *nur_error_context_at(const nur_error_t *err, size_t idx) 
 #define NUR_ERROR_CONTEXT_AT(err, idx) nur_error_context_at(&(err), (size_t)(idx))
 #else
 NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
-    int i_;
     if (ctx == (const char *)0) return e;
 
     if (e.cause == (const char *)0 && e.context != (const char *)0) {
@@ -549,6 +555,7 @@ NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
     if (e.context_count < NUR_MAX_CONTEXT_DEPTH) {
         e.context_chain[e.context_count++] = ctx;
     } else {
+        int i_;
         /* Preserve origin at [0], shift intermediate entries */
         for (i_ = 1; i_ < NUR_MAX_CONTEXT_DEPTH - 1; ++i_) {
             e.context_chain[i_] = e.context_chain[i_ + 1];
@@ -646,7 +653,7 @@ NUR_INLINE nur_error_t nur_error_copy_msg(nur_error_t e, const char *src_str) {
 #ifndef NUR_COMPACT_ERRORS
     size_t i = 0;
     if (src_str != (const char *)0) {
-        while (src_str[i] != '\0' && i < (NUR_ERROR_INLINE_MSG_SIZE - 1)) {
+        while (i < (NUR_ERROR_INLINE_MSG_SIZE - 1) && src_str[i] != '\0') {
             e.inline_msg[i] = src_str[i];
             i++;
         }
@@ -1537,7 +1544,6 @@ NUR_INLINE size_t nur_error_format(const nur_error_t *error, char *buffer, size_
  */
 NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t capacity) {
     nur_internal_sink_t sink;
-    size_t i;
 #ifndef NUR_COMPACT_ERRORS
     unsigned char i_;
 #endif
@@ -1546,8 +1552,12 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
         if (buffer && capacity > 0) {
             static const char null_json[] = "{\"ok\":true}";
             size_t len = sizeof(null_json) - 1;
-            size_t copy_len = len < capacity ? len : capacity - 1;
-            for (i = 0; i < copy_len; ++i) buffer[i] = null_json[i];
+            size_t copy_len = (capacity > len) ? len : (capacity - 1);
+            size_t k = 0;
+            while (k < copy_len) {
+                buffer[k] = null_json[k];
+                k++;
+            }
             buffer[copy_len] = '\0';
             return len;
         }
