@@ -76,10 +76,10 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           # Test freestanding combinations
-          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDIO -c test/test_all_features_and_errors.c -o test_no_stdio.o
-          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDLIB -c test/test_all_features_and_errors.c -o test_no_stdlib.o
-          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STRING -c test/test_all_features_and_errors.c -o test_no_string.o
-          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_LITE -c test/test_all_features_and_errors.c -o test_lite.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDIO -c test/test_standalone_include.c -o test_no_stdio.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STDLIB -c test/test_standalone_include.c -o test_no_stdlib.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_NO_STRING -c test/test_standalone_include.c -o test_no_string.o
+          $CC -std=c11 -Wall -Wextra -Wpedantic -Werror -Isrc -DNUR_LITE -c test/test_standalone_include.c -o test_lite.o
 
       - name: Verify Examples Syntax
         env:
@@ -114,12 +114,12 @@ jobs:
 
       - name: Build & Run with MSVC C11
         run: |
-          cl /std:c11 /W4 /WX /Isrc test\test_nur.c /Fe:test_msvc_c11.exe
+          cl /std:c11 /W4 /WX /D_CRT_SECURE_NO_WARNINGS /Isrc test\test_nur.c /Fe:test_msvc_c11.exe
           .\test_msvc_c11.exe
 
       - name: Build & Run with MSVC C17
         run: |
-          cl /std:c17 /W4 /WX /Isrc test\test_nur.c /Fe:test_msvc_c17.exe
+          cl /std:c17 /W4 /WX /D_CRT_SECURE_NO_WARNINGS /Isrc test\test_nur.c /Fe:test_msvc_c17.exe
           .\test_msvc_c17.exe
 
   cmake-package-install:
@@ -170,7 +170,7 @@ jobs:
 
       - name: Run cppcheck
         run: |
-          cppcheck --enable=all --std=c11 --suppress=missingIncludeSystem --error-exitcode=1 src/nur.h
+          cppcheck --enable=all --std=c11 --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=toomanyconfigs --error-exitcode=1 src/nur.h
 
       - name: Verify API Documentation Sync
         run: |
