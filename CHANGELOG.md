@@ -5,6 +5,20 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-10-13
+
+### Added
+- **Built-in Safe Drop-in Helpers (`nur_sqrt`, `nur_strlen`)**: Added zero-allocation domain validation helpers:
+  - `nur_sqrt(double x)`: Computes square root safely returning `NurResult_f64`; returns `NUR_E_INVALID_ARGUMENT` on negative numbers instead of generating silent `NaN`.
+  - `nur_strlen(const char *str)`: Computes string length safely returning `NurResult_usize`; returns `NUR_E_NULL_POINTER` on `NULL` pointers instead of triggering a segmentation fault.
+  - C++ `namespace nur` overloads `nur::sqrt(double)` and `nur::strlen(const char *)`.
+- **Comprehensive Drop-in Safety & Domain Test Suite (`test/test_super_header_and_dropin.c`)**:
+  - Validates zero-extra-header standard C compilation (`printf`, `sqrt`, `strlen`, `rand`, `time`).
+  - Validates the 4 high-performance domain patterns (Pure numeric linear algebra, tight loops with validate-at-entry, trivial getters/setters with `NurOption`, and hardware ISRs with 0 heap allocation).
+  - 100% ISO C89/C90 compatible, compiling cleanly across C89, C99, C11, C17, C23, and C++11 with zero warnings under `-Wall -Wextra -Wpedantic`.
+- **Opt-In Safety Architecture Documentation**:
+  - Expanded `README.md`, `AGENTS.md` (Section 7), and `AI_POLICY.md` (`NUR-AI-008`) with architectural clarity on when and how to apply `nur.h` with zero runtime overhead.
+
 ## [1.3.1] - 2026-10-13
 
 ### Added

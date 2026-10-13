@@ -2849,6 +2849,46 @@ NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t
 }
 #endif /* !NUR_NO_STDIO */
 
+#ifndef NUR_NO_MATH
+/**
+ * Safely computes square root with domain protection, returning NurResult_f64.
+ * Returns NUR_E_INVALID_ARGUMENT on negative input, preventing silent NaN generation.
+ *
+ * Usage:
+ *   NurResult_f64 r = nur_sqrt(16.0);
+ *   if (NUR_IS_OK(r)) { printf("%f\n", NUR_VALUE(r)); }
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_f64 nur_sqrt(double x) {
+    if (x < 0.0) {
+        return nur_err_f64(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0,
+            "Square root of negative number is undefined in real domain", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_f64(sqrt(x));
+}
+#endif /* !NUR_NO_MATH */
+
+#ifndef NUR_NO_STRING
+/**
+ * Safely computes string length with null-pointer protection, returning NurResult_usize.
+ * Returns NUR_E_NULL_POINTER if str is NULL, preventing segmentation fault.
+ *
+ * Usage:
+ *   NurResult_usize r = nur_strlen("Hello");
+ *   if (NUR_IS_OK(r)) { printf("%zu\n", NUR_VALUE(r)); }
+ */
+NUR_NODISCARD
+NUR_INLINE NurResult_usize nur_strlen(const char *str) {
+    if (str == NULL) {
+        return nur_err_usize(nur_internal_make_error(NUR_E_NULL_POINTER, 0,
+            "Cannot calculate length of NULL string pointer", NULL,
+            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    }
+    return nur_ok_usize(strlen(str));
+}
+#endif /* !NUR_NO_STRING */
+
 /*============================================================================
  * COMPILE-TIME SECURITY SHIELD & TYPO GUARD (Pillar 2)
  *===========================================================================*/
@@ -2952,6 +2992,13 @@ namespace nur {
     inline D unwrap_or(const T &res, D default_val) {
         return res.ok ? static_cast<D>(res.u.value) : default_val;
     }
+
+#ifndef NUR_NO_MATH
+    inline ::NurResult_f64 sqrt(double x) { return ::nur_sqrt(x); }
+#endif
+#ifndef NUR_NO_STRING
+    inline ::NurResult_usize strlen(const char *str) { return ::nur_strlen(str); }
+#endif
 }
 #endif
 

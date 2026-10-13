@@ -71,6 +71,13 @@ int main() {
     nur::Result_void v_ns = nur::ok();
     assert(nur::is_ok(v_ns));
 
+    // 8. Built-in drop-in helpers in C++
+    nur::Result_f64 r_sqrt = nur::sqrt(49.0);
+    assert(nur::is_ok(r_sqrt) && nur::value(r_sqrt) == 7.0);
+
+    nur::Result_usize r_len = nur::strlen("hello cpp");
+    assert(nur::is_ok(r_len) && nur::value(r_len) == 9);
+
     std::cout << "All C++ compatibility tests PASSED! [OK]" << std::endl;
     return 0;
 }

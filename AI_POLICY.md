@@ -142,9 +142,9 @@ cleanup:
 
 ---
 
-### `NUR-AI-008`: Infallible Boundary & No Over-Engineering
+### `NUR-AI-008`: Opt-In Safety Boundary & Zero-Overhead Performance
 - **Severity**: `RECOMMENDED` (Design Invariant)
-- **Rule**: Do not wrap pure mathematical computations (matrix multiplication, trigonometry), nanosecond-critical tight inner loops, trivial getters/setters, or hardware Interrupt Service Routines (ISRs) in `NurResult`. Use native primitive types for infallible code.
+- **Rule**: Do not wrap mathematically infallible code (matrix multiplication inner loops, trivial getters/setters, hardware ISRs) in `NurResult`. Perform validation at function boundaries (validate-at-entry) and run internal loops at bare-metal speed. Built-in drop-in helpers (`nur_sqrt()`, `nur_strlen()`) can be used when input domain validation is explicitly required.
 
 ---
 
@@ -162,7 +162,7 @@ Linters and automated agents should validate their output against this JSON mani
     { "id": "NUR-AI-005", "name": "BreadcrumbContextChaining", "severity": "RECOMMENDED" },
     { "id": "NUR-AI-006", "name": "NoDiscardAnnotation", "severity": "HIGH" },
     { "id": "NUR-AI-007", "name": "SecurityShieldCompliance", "severity": "BLOCKER" },
-    { "id": "NUR-AI-008", "name": "InfallibleBoundaryNoOverEngineering", "severity": "RECOMMENDED" }
+    { "id": "NUR-AI-008", "name": "OptInSafetyBoundaryZeroOverhead", "severity": "RECOMMENDED" }
   ]
 }
 ```

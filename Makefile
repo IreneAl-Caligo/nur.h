@@ -107,7 +107,7 @@ $(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
 
 # Run tests
 .PHONY: test
-test: $(TEST_BINARY) test-universal test-all-features test-freestanding test-compact test-standalone test-odr test-cpp
+test: $(TEST_BINARY) test-universal test-all-features test-freestanding test-compact test-standalone test-odr test-cpp test-dropin
 	@echo "Running test suite..."
 	$(RUN_PREFIX)$(TEST_BINARY)
 
@@ -257,6 +257,18 @@ else
 	@rm -f test_cpp$(EXE)
 endif
 	@echo "C++ compatibility test PASSED [OK]"
+
+.PHONY: test-dropin
+test-dropin: $(HEADER)
+	@echo "Running super-header & drop-in safety test..."
+	$(CC) $(CFLAGS_C11) -o test/test_super_header_and_dropin$(EXE) test/test_super_header_and_dropin.c
+	$(RUN_PREFIX)test/test_super_header_and_dropin$(EXE)
+ifeq ($(OS),Windows_NT)
+	@cmd /C del /Q /F test\test_super_header_and_dropin.exe 2>nul
+else
+	@rm -f test/test_super_header_and_dropin$(EXE)
+endif
+	@echo "Super-header & drop-in tests PASSED [OK]"
 
 # AddressSanitizer and UndefinedBehaviorSanitizer
 .PHONY: test-asan

@@ -26,7 +26,7 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
 - [Progressive Guide (Beginner to Expert & AI)](#-progressive-guide-beginner-to-expert--ai)
 - [Common Patterns Cheat Sheet](#-common-patterns-cheat-sheet)
 - [Bad Patterns vs. Good Patterns](#-bad-patterns-vs-good-patterns)
-- [When to Use & When NOT to Use](#-when-to-use--when-not-to-use)
+- [Opt-In Safety & High-Performance Domains](#-opt-in-safety--high-performance-domains)
 - [Real-World Production Examples](#-real-world-production-examples)
 - [Ergonomic Developer APIs](#-ergonomic-developer-apis)
 - [Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)](#-leak-free-resource-cleanup-nur_try_goto)
@@ -245,20 +245,56 @@ if (nur_is_ok_i32(res)) { int val = nur_value_i32(res); }
 
 ---
 
-## 🎯 When to Use & When NOT to Use
+## 🎯 Opt-In Safety & High-Performance Domains
 
-### ✅ When to Use `nur.h`:
-- File I/O, sockets, network communication, hardware buses.
-- Parsing text formats (JSON, INI, CSV, CLI arguments).
-- Dynamic memory allocations and resource pools.
-- Public library boundaries where failure is an explicit possibility.
-- Multi-layered services where errors must propagate with origin line/file metadata.
+`nur.h` operates on an **Opt-In Safety Architecture**. It serves as a **Batteries-Included Super-Header** that automatically includes standard C headers (`<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<math.h>`, `<time.h>`, `<ctype.h>`, `<stdbool.h>`, `<stdint.h>`, `<errno.h>`).
 
-### ❌ When NOT to Use `nur.h`:
-- Pure numeric arithmetic (e.g. matrix multiplication, trigonometric functions).
-- Tight inner loops where failure is mathematically impossible and cycles are critical.
-- Trivial member getters and setters.
-- Hardware Interrupt Service Routines (ISRs) requiring bare register execution.
+You do **NOT** have to wrap every function in `NurResult` or write tedious boilerplate wrappers. Standard C code runs directly with bare-metal speed:
+
+```c
+#include "nur.h"
+
+int main(void) {
+    // 1. Standard C math runs directly with ZERO extra headers
+    double r = sqrt(16.0); // 4.0
+    
+    // 2. Standard strings & I/O
+    char text[] = "Hello";
+    printf("Length: %lu\n", (unsigned long)strlen(text)); // 5
+    printf("Random: %d\n", rand());
+    return 0;
+}
+```
+
+### 🏎️ How to Apply `nur.h` Across High-Performance Domains:
+
+#### 1. Pure Numeric Arithmetic (Linear Algebra & Trigonometry)
+Write standard primitive arithmetic (`float`, `double`, `sin()`, `cos()`) with 0 overhead and 0 heap allocation.
+- **Built-in Safe Helper**: If input domain protection is desired, use `nur_sqrt(x)`:
+  ```c
+  NurResult_f64 r = nur_sqrt(25.0);  // OK: 5.0
+  NurResult_f64 err = nur_sqrt(-1.0); // ERR: NUR_E_INVALID_ARGUMENT (prevents silent NaN)
+  ```
+
+#### 2. High-Frequency Tight Inner Loops (DSP, Audio, Matrix Multiplication)
+Execute inner loops at 100% bare-metal speed without cycle-wasting per-iteration checks. Validate buffer pointers and dimensions **once at entry**:
+```c
+NurResult_void scale_buffer(float *buf, size_t len, float factor) {
+    NUR_CHECK(buf != NULL, NUR_ERROR(NUR_E_NULL_POINTER, "buf is NULL"));
+    /* Boundary checked once. Hot loop vectorizes with bare-metal speed: */
+    for (size_t i = 0; i < len; ++i) {
+        buf[i] *= factor;
+    }
+    return NUR_OK_VOID();
+}
+```
+
+#### 3. Trivial Member Getters & Setters
+Write standard scalar getters/setters directly (`return obj->id;`). For optional or uninitialized fields, use zero-overhead `NurOption` (`NUR_SOME`, `NUR_NONE`).
+
+#### 4. Hardware Interrupt Service Routines (ISRs) & Bare Metal
+`nur.h` guarantees **zero heap allocations** (`malloc`/`free` are never called internally).
+- In freestanding or microcontroller firmware (`#define NUR_FREESTANDING 1`), standard library headers are stripped, allowing bare-metal register manipulation in ISRs with zero cycle latency.
 
 ---
 

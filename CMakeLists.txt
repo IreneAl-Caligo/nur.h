@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(nur VERSION 1.3.1 LANGUAGES C CXX)
+project(nur VERSION 1.3.2 LANGUAGES C CXX)
 
 # Standard GNU install directories & package helpers
 include(GNUInstallDirs)

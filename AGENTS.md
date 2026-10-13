@@ -132,21 +132,22 @@ Before submitting any code change:
 
 ---
 
-## 7. When to Use & When NOT to Use nur.h
+## 7. Opt-In Safety & High-Performance Domain Patterns
 
-AI agents and developers should apply `nur.h` where fallible failure modes exist, but strictly avoid over-engineering where failure is impossible:
+`nur.h` operates on an **Opt-In Safety Philosophy**. Developers and AI agents are NOT required to force `NurResult` onto every line of C code. `nur.h` is a batteries-included super-header (bringing `<stdio.h>`, `<math.h>`, `<string.h>`, `<stdlib.h>`, and `<time.h>` out of the box), allowing bare-metal performance where failure is impossible:
 
-### ✅ When to Use:
-- **Fallible I/O Operations**: File I/O, network sockets, serialization/deserialization, IPC.
-- **Data Parsing**: User inputs, configuration files (JSON, INI, CSV), CLI arguments.
-- **Resource Management**: Dynamic memory allocation, device handles, connection pools.
-- **Fallible Domain Logic**: State transitions, balance transfers, permission validation.
+### 1. Pure Numeric Arithmetic (Linear Algebra & Trigonometry)
+- Use native standard C primitives (`float`, `double`, `sin()`, `cos()`, `sqrt()`) directly with `#include "nur.h"`. No extra includes or boilerplate wrappers required.
+- **Built-in Safe Helper**: If input domain protection is desired, use `nur_sqrt(x)` which returns `NurResult_f64` and returns `NUR_E_INVALID_ARGUMENT` on negative numbers instead of producing `NaN`.
 
-### ❌ When NOT to Use:
-- **Pure Numeric Arithmetic**: Fast linear algebra, matrix multiplication, trigonometric functions (`sin`, `cos`, `sqrt`). Use raw primitives (`float`, `double`).
-- **Tight Inner Loops**: High-frequency trading, audio DSP buffers, physics/rendering loops where failure is mathematically impossible and nanosecond cycle counts are critical.
-- **Trivial Getters / Setters**: Simple struct accessors (`get_id()`, `set_active()`) that cannot fail.
-- **Hardware Interrupt Service Routines (ISRs)**: Bare-metal microcontroller interrupts requiring bare register execution and minimal cycle latency.
+### 2. Tight Inner Loops (DSP, Audio, Matrix Multiplication)
+- Do not check errors inside hot per-cycle inner loops.
+- Apply the **Validate-at-Entry** pattern: check buffer pointers and bounds once at the function boundary using `NUR_CHECK(...)`, then execute the inner loop at 100% bare-metal speed.
 
+### 3. Trivial Getters & Setters
+- Direct struct member access (`return obj->field;`) or scalar setters.
+- For optional fields, use zero-overhead `NurOption` (`NUR_SOME`, `NUR_NONE`).
 
-
+### 4. Hardware Interrupt Service Routines (ISRs) & Bare Metal
+- `nur.h` guarantees **zero heap allocations** (`malloc`/`free` are never called internally).
+- In embedded environments with `#define NUR_FREESTANDING 1`, standard headers are omitted, and ISRs can execute bare register reads/writes with zero cycle latency.
