@@ -28,7 +28,7 @@
 
 #if defined(_MSC_VER)
 #  ifndef _CRT_SECURE_NO_WARNINGS
-#    define _CRT_SECURE_NO_WARNINGS 1
+#    define _CRT_SECURE_NO_WARNINGS 1 /* NOLINT(bugprone-reserved-identifier) */
 #  endif
 #  pragma warning(disable: 4996)
 #  pragma warning(disable: 4714)
@@ -705,7 +705,7 @@ NUR_INLINE nur_error_t nur_internal_make_error_fmt(
     return err;
 }
 
-#if !defined(NUR_C89)
+#ifndef NUR_C89
 #define NUR_ERROR_FMT(code, fmt, ...) \
     nur_internal_make_error_fmt((code), NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE, (fmt), __VA_ARGS__)
 #endif
@@ -1715,7 +1715,7 @@ typedef void (*nur_panic_handler_t)(const char *msg, const nur_error_t *e,
                                     const char *file, unsigned int line);
 
 #ifndef NUR_CUSTOM_PANIC_HANDLER_STORAGE
-    #if defined(_MSC_VER)
+    #ifdef _MSC_VER
         #define NUR_CUSTOM_PANIC_HANDLER_STORAGE __declspec(selectany)
     #elif defined(__GNUC__) || defined(__clang__)
         #define NUR_CUSTOM_PANIC_HANDLER_STORAGE __attribute__((weak))
@@ -2789,7 +2789,8 @@ NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
         if (NUR_UNLIKELY(NUR_IS_OK(r))) { \
             nur_internal_panic_msg("NUR_ASSERT_ERR failed: expected Err, got Ok", \
                 NUR_ERROR(NUR_E_INVALID_STATE, "result was Ok"), NUR_LOC_FILE, NUR_LOC_LINE); \
-        } else if (NUR_UNLIKELY(NUR_ERROR_OF(r).code != (expected_code))) { \
+        } \
+        if (NUR_UNLIKELY(NUR_ERROR_OF(r).code != (expected_code))) { \
             nur_internal_panic_msg("NUR_ASSERT_ERR failed: error code mismatch", \
                 NUR_ERROR_OF(r), NUR_LOC_FILE, NUR_LOC_LINE); \
         } \
@@ -2962,7 +2963,8 @@ NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t
                 NUR_E_TRUNCATED, 0,
                 "Buffer capacity insufficient: file truncated", path,
                 NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
-        } else if (ferror(f)) {
+        }
+        if (ferror(f)) {
             (void)fclose(f);
             return nur_err_cstr(nur_internal_make_error(
                 NUR_E_IO, errno,
@@ -2999,7 +3001,7 @@ NUR_INLINE NurResult_f64 nur_sqrt(double x) {
         double guess = x > 1.0 ? x * 0.5 : 1.0;
         int iter;
         for (iter = 0; iter < 64; ++iter) {
-            double next = 0.5 * (guess + x / guess);
+            double next = 0.5 * (guess + (x / guess));
             if (next == guess) break;
             guess = next;
         }

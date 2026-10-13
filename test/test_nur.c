@@ -7,7 +7,7 @@
 
 #if defined(_MSC_VER)
 #  ifndef _CRT_SECURE_NO_WARNINGS
-#    define _CRT_SECURE_NO_WARNINGS 1
+#    define _CRT_SECURE_NO_WARNINGS 1 /* NOLINT(bugprone-reserved-identifier) */
 #  endif
 #  pragma warning(disable: 4996)
 #  pragma warning(disable: 4714)
@@ -340,7 +340,7 @@ static int test_error_print(void) {
     /* Null-safety: must not crash */
     nur_error_print(NULL, f);
     nur_error_print(&e, NULL);
-    fclose(f);
+    if (fclose(f) != 0) return 0;
     return 1;
 }
 
@@ -668,7 +668,7 @@ static int test_inline_message_and_formatting(void) {
 
     /* 2. Dynamic copy into inline buffer */
     char ephemeral_buf[32];
-    sprintf(ephemeral_buf, "id-%d", 42);
+    if (snprintf(ephemeral_buf, sizeof(ephemeral_buf), "id-%d", 42) <= 0) return 0;
     nur_error_t err_copy = NUR_ERROR_COPY(NUR_E_INVALID_ARGUMENT, ephemeral_buf);
     if (strcmp(nur_error_message(&err_copy), "id-42") != 0) return 0;
     if (strcmp(err_copy.inline_msg, "id-42") != 0) return 0;
@@ -720,8 +720,7 @@ int main(void) {
     if (tests_passed == tests_run) {
         printf("All tests PASSED! ✓\n");
         return 0;
-    } else {
-        printf("Some tests FAILED! ✗\n");
-        return 1;
     }
+    printf("Some tests FAILED! ✗\n");
+    return 1;
 }

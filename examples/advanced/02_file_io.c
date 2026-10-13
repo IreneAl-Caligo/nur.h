@@ -17,7 +17,17 @@
 #include <errno.h>
 #include <time.h>
 #include <limits.h>
-#include <nur.h>
+#if defined(__has_include)
+#  if __has_include("../../src/nur.h")
+#    include "../../src/nur.h"
+#  elif __has_include("nur.h")
+#    include "nur.h"
+#  else
+#    include <nur.h>
+#  endif
+#else
+#  include "nur.h"
+#endif
 
 /* Platform-specific temp directory */
 #ifdef _WIN32

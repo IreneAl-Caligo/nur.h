@@ -12,6 +12,9 @@ CompileFlags:
     - -Isrc
     - -Itest
     - -I.
+    - -I../src
+    - -I../../src
+    - -I../../../src
 
 ---
 
@@ -58,6 +61,7 @@ Diagnostics:
       - bugprone-macro-parentheses
       - bugprone-easily-swappable-parameters
       - bugprone-branch-clone
+      - bugprone-reserved-identifier
       - cert-dcl37-c
       - cert-dcl51-cpp
   UnusedIncludes: None
