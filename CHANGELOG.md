@@ -5,6 +5,36 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-10-13
+
+### Added
+- **Permanent ABI Layout Freeze Specification (`docs/ABI_SPECIFICATION.md`)**:
+  - Formally specified and frozen byte sizes, struct member offsets, and alignment requirements across 64-bit (LP64, LLP64) and 32-bit (ILP32) architectures for all predefined Result and Option types.
+  - Added dedicated ABI layout regression test suite (`test/test_abi_layout.c`) with static and runtime verification.
+- **Ultra-Lean Primitives Header (`src/nur_core.h`)**:
+  - Independent, zero-dependency Result and Option primitive implementation (<750 lines) requiring exclusively `<stdbool.h>`, `<stddef.h>`, and `<stdint.h>`.
+  - 100% binary ABI compatible with `src/nur.h`.
+- **Clang-Tidy & Clang-Format CI Quality Gates (`.github/workflows/ci.yml`)**:
+  - Integrated Clang-Tidy static analysis (`--warnings-as-errors='*'`) and Clang-Format enforcement in GitHub Actions.
+  - Added multi-compiler, multi-standard matrix (C89, C99, C11, C17, C23) with GCC, Clang, and MSVC.
+  - Automated 32-bit and 64-bit ABI layout freeze verification jobs.
+- **First-Class CMake `FetchContent` and Meson Wrap Support**:
+  - Single-line integration: `FetchContent_Declare(nur ...)` exposes targets `nur::nur` and `nur::core`.
+  - Added `subprojects/nur.wrap` and Meson dependency overrides (`nur`, `nur_core`).
+- **MISRA-C & Embedded Zero-Macro Compliance Guide (`docs/MISRA_COMPLIANCE.md`)**:
+  - Documented 100% macro-free functional API (`NUR_PURIST 1` / `NUR_NO_HIDDEN_RETURNS 1`) satisfying MISRA C:2012 / 2023 Rules 14.4, 15.5, 20.10, 21.3, and 21.6.
+- **Package Manager Deployment Ready**:
+  - Added Microsoft `vcpkg` registry port recipe (`ports/nur/portfile.cmake`, `ports/nur/vcpkg.json`).
+  - Added Conan 2.0 package definition (`conanfile.py`) and step-by-step submission guide (`docs/PACKAGE_REGISTRY_SUBMISSION.md`).
+- **Inline Message Lifetime Protection**:
+  - Added `char inline_msg[64]` to `nur_error_t` and `NUR_ERROR_COPY` / `NUR_ERROR_FMT` macros preventing use-after-free from local stack strings.
+- **Multi-TU Weak Symbol Synchronization**:
+  - Replaced `static` storage for panic handler with weak linkage (`__attribute__((weak))` / `__declspec(selectany)`), ensuring seamless multi-translation unit panic synchronization without duplicate symbol errors.
+
+### Changed
+- **Removed `<math.h>` and `<time.h>` Dependencies**: Completely decoupled `src/nur.h` from standard math and time libraries; implemented Newton-Raphson approximation in `nur_sqrt`.
+- Version synchronized to 1.4.0 across `VERSION`, `CMakeLists.txt`, `meson.build`, `nur.pc`, `vcpkg.json`, and `conanfile.py`.
+
 ## [1.3.2] - 2026-10-13
 
 ### Added

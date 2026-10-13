@@ -23,6 +23,6 @@ Checks: >
   -cert-env33-c,
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
 WarningsAsErrors: 'bugprone-*,clang-analyzer-*'
-HeaderFilterRegex: 'src/nur\.h'
+HeaderFilterRegex: 'src/.*\.h'
 FormatStyle: file
 ...

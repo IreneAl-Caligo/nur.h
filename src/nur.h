@@ -34,10 +34,10 @@ extern "C" {
  * VERSION INFORMATION
  *===========================================================================*/
 #define NUR_VERSION_MAJOR 1
-#define NUR_VERSION_MINOR 3
-#define NUR_VERSION_PATCH 2
-#define NUR_VERSION_STRING "1.3.2"
-#define NUR_VERSION_NUMBER 10302
+#define NUR_VERSION_MINOR 4
+#define NUR_VERSION_PATCH 0
+#define NUR_VERSION_STRING "1.4.0"
+#define NUR_VERSION_NUMBER 10400
 
 #ifdef NUR_LITE
     #define NUR_NO_EXTENSIONS 1
@@ -104,12 +104,6 @@ extern "C" {
     #ifndef NUR_NO_STDLIB
         #define NUR_NO_STDLIB 1
     #endif
-    #ifndef NUR_NO_MATH
-        #define NUR_NO_MATH 1
-    #endif
-    #ifndef NUR_NO_TIME
-        #define NUR_NO_TIME 1
-    #endif
     #ifndef NUR_NO_CTYPE
         #define NUR_NO_CTYPE 1
     #endif
@@ -160,18 +154,11 @@ extern "C" {
 
 #ifndef NUR_NO_STDIO
     #include <stdio.h>
+    #include <stdarg.h>
 #endif
 
 #ifndef NUR_NO_STDLIB
     #include <stdlib.h>
-#endif
-
-#ifndef NUR_NO_MATH
-    #include <math.h>
-#endif
-
-#ifndef NUR_NO_TIME
-    #include <time.h>
 #endif
 
 #ifndef NUR_NO_CTYPE
@@ -423,6 +410,10 @@ typedef enum nur_error_code_t {
 #define NUR_MAX_CONTEXT_DEPTH 4
 #endif
 
+#ifndef NUR_ERROR_INLINE_MSG_SIZE
+#define NUR_ERROR_INLINE_MSG_SIZE 64
+#endif
+
 #ifdef NUR_COMPACT_ERRORS
 typedef struct {
     nur_error_code_t code;
@@ -441,6 +432,7 @@ typedef struct {
     unsigned int     line;     
     unsigned char    context_count;
     const char      *context_chain[NUR_MAX_CONTEXT_DEPTH];
+    char             inline_msg[NUR_ERROR_INLINE_MSG_SIZE];
 #ifdef NUR_ENABLE_BACKTRACE
     void *trace[16];
     int trace_count;
@@ -486,6 +478,7 @@ NUR_INLINE nur_error_t nur_internal_make_error(
     err.func = func;
     err.line = line;
     err.context_count = 0;
+    err.inline_msg[0] = '\0';
     for (i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
         err.context_chain[i_] = (const char *)0;
     }
@@ -645,6 +638,60 @@ NUR_INLINE const char *nur_error_context_at(const nur_error_t *err, size_t idx) 
  */
 #define NUR_ERROR_LIT_CTX(code, literal_msg, literal_ctx) \
     NUR_ERROR_CTX((code), ("" literal_msg), ("" literal_ctx))
+
+/**
+ * Safe dynamic message copy into inline buffer to eliminate dangling pointers.
+ */
+NUR_INLINE nur_error_t nur_error_copy_msg(nur_error_t e, const char *src_str) {
+#ifndef NUR_COMPACT_ERRORS
+    size_t i = 0;
+    if (src_str != (const char *)0) {
+        while (src_str[i] != '\0' && i < (NUR_ERROR_INLINE_MSG_SIZE - 1)) {
+            e.inline_msg[i] = src_str[i];
+            i++;
+        }
+        e.inline_msg[i] = '\0';
+        e.message = (const char *)0;
+    }
+#else
+    (void)src_str;
+#endif
+    return e;
+}
+
+#define NUR_ERROR_COPY(code, dynamic_str) \
+    nur_error_copy_msg(NUR_ERROR((code), (const char *)0), (dynamic_str))
+
+#ifndef NUR_NO_STDIO
+/**
+ * Safe dynamic string formatting into inline buffer without dangling pointers.
+ *
+ * Usage:
+ *   return NUR_ERR(i32, NUR_ERROR_FMT(NUR_E_OUT_OF_RANGE, "port %d exceeds %d", p, max_p));
+ */
+NUR_INLINE nur_error_t nur_internal_make_error_fmt(
+    nur_error_code_t code, const char *file, const char *func, unsigned int line,
+    const char *fmt, ...
+) {
+    nur_error_t err = nur_internal_make_error(code, 0, (const char *)0, (const char *)0, file, func, line);
+#ifndef NUR_COMPACT_ERRORS
+    va_list args;
+    va_start(args, fmt);
+    (void)vsnprintf(err.inline_msg, sizeof(err.inline_msg), fmt, args);
+    va_end(args);
+    err.inline_msg[sizeof(err.inline_msg) - 1] = '\0';
+    err.message = (const char *)0;
+#else
+    (void)fmt;
+#endif
+    return err;
+}
+
+#if !defined(NUR_C89)
+#define NUR_ERROR_FMT(code, fmt, ...) \
+    nur_internal_make_error_fmt((code), NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE, (fmt), __VA_ARGS__)
+#endif
+#endif
 
 /**
  * Create an I/O error from errno, capturing source location.
@@ -925,6 +972,7 @@ NUR_NODISCARD NUR_INLINE NurResult_void nur_ok_void(void) {
     r.u.error.func = (const char *)0;
     r.u.error.line = 0U;
     r.u.error.context_count = 0;
+    r.u.error.inline_msg[0] = '\0';
     for (i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
         r.u.error.context_chain[i_] = (const char *)0;
     }
@@ -1005,7 +1053,7 @@ NUR_OPTION_TYPE(const char *, cstr_const);
 NUR_OPTION_TYPE(void *, ptr);
 
 /*============================================================================
- * CONVENIENCE MACROS & UNIVERSAL TYPE ENGINE (Pillar 1)
+ * CONVENIENCE MACROS & UNIVERSAL TYPE ENGINE
  *===========================================================================*/
 
 #ifdef __cplusplus
@@ -1646,13 +1694,20 @@ typedef void (*nur_panic_handler_t)(const char *msg, const nur_error_t *e,
                                     const char *file, unsigned int line);
 
 #ifndef NUR_CUSTOM_PANIC_HANDLER_STORAGE
-#define NUR_CUSTOM_PANIC_HANDLER_STORAGE static
+    #if defined(_MSC_VER)
+        #define NUR_CUSTOM_PANIC_HANDLER_STORAGE __declspec(selectany)
+    #elif defined(__GNUC__) || defined(__clang__)
+        #define NUR_CUSTOM_PANIC_HANDLER_STORAGE __attribute__((weak))
+    #else
+        #define NUR_CUSTOM_PANIC_HANDLER_STORAGE static
+    #endif
 #endif
 
 NUR_UNUSED NUR_CUSTOM_PANIC_HANDLER_STORAGE nur_panic_handler_t nur_internal_custom_panic_handler = NULL;
 
 /**
- * Set custom panic handler. Set NULL to restore default stderr+abort behaviour.
+ * Set custom panic handler. Synchronized across all translation units.
+ * Set NULL to restore default stderr+abort behaviour.
  */
 NUR_INLINE void nur_set_panic_handler(nur_panic_handler_t handler) {
     nur_internal_custom_panic_handler = handler;
@@ -2078,7 +2133,7 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
 #endif /* NUR_GNU_EXTENSIONS */
 
 /*============================================================================
- * C-PURIST & EXPLICIT CONTROL FLOW (Pillar 6)
+ * C-PURIST & EXPLICIT CONTROL FLOW APIS
  *===========================================================================*/
 
 /**
@@ -2110,8 +2165,18 @@ NUR_INLINE nur_error_code_t nur_error_code_of(const nur_error_t *err) {
 }
 
 NUR_INLINE const char *nur_error_message_of(const nur_error_t *err) {
-    return (err && err->message) ? err->message : "";
+    if (!err) return "";
+#ifndef NUR_COMPACT_ERRORS
+    if (err->inline_msg[0] != '\0') return err->inline_msg;
+#endif
+    return err->message ? err->message : "";
 }
+
+NUR_INLINE const char *nur_error_message(const nur_error_t *err) {
+    return nur_error_message_of(err);
+}
+
+#define NUR_ERROR_MSG(err) nur_error_message_of(&(err))
 
 /*============================================================================
  * EARLY-RETURN HELPERS
@@ -2778,7 +2843,7 @@ NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
     } while (0)
 
 /*============================================================================
- * BATTERIES-INCLUDED EXTENSIONS: SAFE MATH & SAFE FILE I/O (Pillar 4)
+ * EXTENSIONS: SAFE ARITHMETIC & FILE I/O HELPERS
  * (Disabled in NUR_LITE mode or with NUR_NO_EXTENSIONS)
  *===========================================================================*/
 #if !defined(NUR_NO_EXTENSIONS) && !defined(NUR_LITE)
@@ -2932,10 +2997,10 @@ NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t
 }
 #endif /* !NUR_NO_STDIO */
 
-#ifndef NUR_NO_MATH
 /**
  * Safely computes square root with domain protection, returning NurResult_f64.
  * Returns NUR_E_INVALID_ARGUMENT on negative input, preventing silent NaN generation.
+ * Implemented using pure, high-precision Newton-Raphson approximation (no <math.h> needed).
  *
  * Usage:
  *   NurResult_f64 r = nur_sqrt(16.0);
@@ -2948,9 +3013,20 @@ NUR_INLINE NurResult_f64 nur_sqrt(double x) {
             "Square root of negative number is undefined in real domain", NULL,
             NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
     }
-    return nur_ok_f64(sqrt(x));
+    if (x == 0.0) {
+        return nur_ok_f64(0.0);
+    }
+    {
+        double guess = x > 1.0 ? x * 0.5 : 1.0;
+        int iter;
+        for (iter = 0; iter < 64; ++iter) {
+            double next = 0.5 * (guess + x / guess);
+            if (next == guess) break;
+            guess = next;
+        }
+        return nur_ok_f64(guess);
+    }
 }
-#endif /* !NUR_NO_MATH */
 
 #ifndef NUR_NO_STRING
 /**
@@ -2973,7 +3049,7 @@ NUR_INLINE NurResult_usize nur_strlen(const char *str) {
 #endif /* !NUR_NO_STRING */
 
 /*============================================================================
- * COMPILE-TIME SECURITY SHIELD & TYPO GUARD (Pillar 2)
+ * COMPILE-TIME SAFETY & DIAGNOSTIC GUARDS
  *===========================================================================*/
 #ifndef NUR_NO_SECURITY_SHIELD
 

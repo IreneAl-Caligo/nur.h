@@ -1,0 +1,8 @@
+[wrap-git]
+url = https://github.com/IreneAl-Caligo/nur.h.git
+revision = v1.4.0
+depth = 1
+
+[provide]
+nur = nur_dep
+nur_core = nur_core_dep

@@ -4,7 +4,7 @@ import os
 
 class NurConan(ConanFile):
     name = "nur"
-    version = "1.3.0"
+    version = "1.4.0"
     license = "MIT"
     author = "Irene Al-Caligo"
     url = "https://github.com/IreneAl-Caligo/nur.h"
@@ -18,9 +18,18 @@ class NurConan(ConanFile):
 
     def package(self):
         copy(self, "nur.h", src=os.path.join(self.source_folder, "src"), dst=os.path.join(self.package_folder, "include"))
+        copy(self, "nur_core.h", src=os.path.join(self.source_folder, "src"), dst=os.path.join(self.package_folder, "include"))
         copy(self, "LICENSE", src=self.source_folder, dst=os.path.join(self.package_folder, "licenses"))
 
     def package_info(self):
         self.cpp_info.bindirs = []
         self.cpp_info.libdirs = []
-        self.cpp_info.includedirs = ["include"]
+        self.cpp_info.set_property("cmake_file_name", "nur")
+        self.cpp_info.set_property("cmake_target_name", "nur::nur")
+        self.cpp_info.set_property("pkg_config_name", "nur")
+
+        self.cpp_info.components["nur"].set_property("cmake_target_name", "nur::nur")
+        self.cpp_info.components["nur"].includedirs = ["include"]
+
+        self.cpp_info.components["core"].set_property("cmake_target_name", "nur::core")
+        self.cpp_info.components["core"].includedirs = ["include"]

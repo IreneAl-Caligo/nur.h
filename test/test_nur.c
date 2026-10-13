@@ -625,6 +625,23 @@ static int test_option_combinators_and_types(void) {
     return 1;
 }
 
+static int test_inline_message_and_formatting(void) {
+    /* 1. Dynamic formatted error directly into inline buffer */
+    nur_error_t err_fmt = NUR_ERROR_FMT(NUR_E_OUT_OF_RANGE, "port %d exceeds %d", 70000, 65535);
+    if (err_fmt.code != NUR_E_OUT_OF_RANGE) return 0;
+    if (strcmp(nur_error_message(&err_fmt), "port 70000 exceeds 65535") != 0) return 0;
+    if (strcmp(err_fmt.inline_msg, "port 70000 exceeds 65535") != 0) return 0;
+
+    /* 2. Dynamic copy into inline buffer */
+    char ephemeral_buf[32];
+    sprintf(ephemeral_buf, "id-%d", 42);
+    nur_error_t err_copy = NUR_ERROR_COPY(NUR_E_INVALID_ARGUMENT, ephemeral_buf);
+    if (strcmp(nur_error_message(&err_copy), "id-42") != 0) return 0;
+    if (strcmp(err_copy.inline_msg, "id-42") != 0) return 0;
+
+    return 1;
+}
+
 int main(void) {
     printf("=== nur.h Library Test Suite ===\n\n");
     
@@ -659,6 +676,7 @@ int main(void) {
     TEST(ergonomic_helpers);
     TEST(custom_error_type_e);
     TEST(option_combinators_and_types);
+    TEST(inline_message_and_formatting);
     
     printf("\n=== Test Results ===\n");
     printf("Tests run: %d\n", tests_run);

@@ -2,14 +2,16 @@
 
 A **single-header, zero-allocation, pedantic warning-free** C library that brings Rust-style `Result<T,E>` and `Option<T>` patterns to ISO C with compiler-assisted safety via `[[nodiscard]]`.
 
-**Author**: Irene Al-Caligo | **Version**: v1.3.2 | **License**: MIT | **Compatibility**: ISO C89, C99, C11, C17, C23 & C++11+
+**Author**: Irene Al-Caligo | **Version**: v1.4.0 | **License**: MIT | **Compatibility**: ISO C89, C99, C11, C17, C23 & C++11+
 
-[![Latest Release](https://img.shields.io/badge/Release-v1.3.2-blue.svg)](CHANGELOG.md)
+[![Latest Release](https://img.shields.io/badge/Release-v1.4.0-blue.svg)](CHANGELOG.md)
 [![C Standard](https://img.shields.io/badge/Standards-C89%20%7C%20C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue.svg)](src/nur.h)
-[![Pedantic Warnings](https://img.shields.io/badge/Warnings-Zero%20Pedantic-brightgreen.svg)](src/nur.h)
+[![Clang-Tidy](https://img.shields.io/badge/Clang--Tidy-Zero%20Warnings-brightgreen.svg)](.clang-tidy)
+[![Clang-Format](https://img.shields.io/badge/Clang--Format-Enforced-blue.svg)](.clang-format)
+[![ABI Freeze](https://img.shields.io/badge/ABI-Frozen%20v1.4.0-brightgreen.svg)](docs/ABI_SPECIFICATION.md)
 [![Zero Heap Allocation](https://img.shields.io/badge/Memory-0%20Bytes%20Heap-brightgreen.svg)](docs/BENCHMARKS.md)
-[![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.ci/ci.yml)
-[![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.ci/ci.yml)
+[![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.github/workflows/ci.yml)
+[![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.github/workflows/ci.yml)
 [![AI / LLM Ready](https://img.shields.io/badge/AI%20DX-LLM%20Safe%20Contract-purple.svg)](AI_POLICY.md)
 
 <div align="center">
@@ -114,7 +116,7 @@ int main(void) {
 ```
 
 > [!TIP]
-> **Super-Header Ergonomics**: `nur.h` is a batteries-included super-header bringing `<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<math.h>`, and `<time.h>` out of the box with zero heap allocation. Your existing code compiles without changes, and immediately gains access to `Result<T,E>`, `Option<T>`, safe arithmetic, and compiler-enforced `[[nodiscard]]` safety.
+> **Super-Header Ergonomics**: `nur.h` is a batteries-included super-header providing `<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<ctype.h>`, `<stdbool.h>`, `<stdint.h>`, and `<errno.h>` out of the box with zero heap allocation. Existing standard C code compiles without modification, and immediately gains access to `Result<T,E>`, `Option<T>`, safe arithmetic, and compiler-enforced `[[nodiscard]]` safety.
 
 <details>
 <summary><b>📺 Interactive Terminal Demo: Zero-Friction Drop-In ("Hello, World!")</b></summary>
@@ -312,7 +314,7 @@ if (nur_is_ok_i32(res)) { int val = nur_value_i32(res); }
 
 ## 🎯 Opt-In Safety & High-Performance Domains
 
-`nur.h` operates on an **Opt-In Safety Architecture**. It serves as a **Batteries-Included Super-Header** that automatically includes standard C headers (`<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<math.h>`, `<time.h>`, `<ctype.h>`, `<stdbool.h>`, `<stdint.h>`, `<errno.h>`).
+`nur.h` operates on an **Opt-In Safety Architecture**. It serves as a **Batteries-Included Super-Header** that automatically includes core standard C headers (`<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<ctype.h>`, `<stdbool.h>`, `<stdint.h>`, `<errno.h>`).
 
 You do **NOT** have to wrap every function in `NurResult` or write tedious boilerplate wrappers. Standard C code runs directly with bare-metal speed:
 
@@ -320,13 +322,16 @@ You do **NOT** have to wrap every function in `NurResult` or write tedious boile
 #include "nur.h"
 
 int main(void) {
-    // 1. Standard C math runs directly with ZERO extra headers
-    double r = sqrt(16.0); // 4.0
-    
-    // 2. Standard strings & I/O
+    // 1. Standard C strings & I/O run directly with zero extra headers
     char text[] = "Hello";
     printf("Length: %lu\n", (unsigned long)strlen(text)); // 5
     printf("Random: %d\n", rand());
+    
+    // 2. Safe math helper with domain protection
+    NurResult_f64 r = nur_sqrt(16.0);
+    if (NUR_IS_OK(r)) {
+        printf("Sqrt: %f\n", NUR_VALUE(r)); // 4.0
+    }
     return 0;
 }
 ```
@@ -675,9 +680,12 @@ chmod +x tools/nur-cc
 - [Portability & Compiler Support Guide](docs/PORTABILITY.md)
 - [Migration Guide (Legacy C -> nur.h)](docs/MIGRATION.md)
 - [AI / LLM Usage Contract & Prompt Pack](docs/AI_GUIDELINES.md)
-- [Error Taxonomy & POSIX/Win32 Mappings](docs/ERROR_TAXONOMY.md)
-- [Performance & Latency Benchmarks](docs/BENCHMARKS.md)
-- [Packaging Guide (CMake, pkg-config, Meson, vcpkg)](docs/PACKAGING.md)
+- [An Open Letter to C Purists (Pure C, Not Rust)](docs/FOR_C_PURISTS.md)
+- [GDB & LLDB Debugging Guide (Pretty-Printers)](docs/DEBUGGING.md)
+- [ABI Layout Freeze Specification](docs/ABI_SPECIFICATION.md)
+- [MISRA-C & Safety-Critical Compliance Guide](docs/MISRA_COMPLIANCE.md)
+- [Central Package Registry Submission Guide](docs/PACKAGE_REGISTRY_SUBMISSION.md)
+- [Packaging & Build Integration (CMake, Meson, vcpkg)](docs/PACKAGING.md)
 - [Project Roadmap](ROADMAP.md)
 - [Contribution Guidelines](CONTRIBUTING.md)
 - [Security Disclosure Policy](SECURITY.md)

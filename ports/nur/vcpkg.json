@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "nur",
+  "version": "1.4.0",
+  "port-version": 0,
+  "description": "Zero-allocation, header-only Result<T> and Option<T> error handling library for ISO C89, C99, C11, C17, C23, and C++11",
+  "homepage": "https://github.com/IreneAl-Caligo/nur.h",
+  "license": "MIT",
+  "supports": "!(uwp)",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

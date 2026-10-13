@@ -134,7 +134,7 @@ Before submitting any code change:
 
 ## 7. Opt-In Safety & High-Performance Domain Patterns
 
-`nur.h` operates on an **Opt-In Safety Philosophy**. Developers and AI agents are NOT required to force `NurResult` onto every line of C code. `nur.h` is a batteries-included super-header (bringing `<stdio.h>`, `<math.h>`, `<string.h>`, `<stdlib.h>`, and `<time.h>` out of the box), allowing bare-metal performance where failure is impossible:
+`nur.h` operates on an **Opt-In Safety Philosophy**. Developers and AI agents are NOT required to force `NurResult` onto every line of C code. `nur.h` is a batteries-included super-header (bringing `<stdio.h>`, `<string.h>`, `<stdlib.h>`, `<stdbool.h>`, `<stdint.h>`, and `<errno.h>` out of the box), allowing bare-metal performance where failure is impossible:
 
 ### 1. Pure Numeric Arithmetic (Linear Algebra & Trigonometry)
 - Use native standard C primitives (`float`, `double`, `sin()`, `cos()`, `sqrt()`) directly with `#include "nur.h"`. No extra includes or boilerplate wrappers required.

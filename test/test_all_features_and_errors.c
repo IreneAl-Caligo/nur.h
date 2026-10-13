@@ -48,13 +48,9 @@ static int test_batteries_included_headers(void) {
     if (strlen("hello") != 5) return 0;
     if (strcmp("abc", "abc") != 0) return 0;
 
-    /* math.h */
-    double sq = sqrt(16.0);
-    if (fabs(sq - 4.0) > 0.0001) return 0;
-
-    /* time.h */
-    time_t t = time(NULL);
-    if (t == (time_t)(-1)) return 0;
+    /* Safe math without requiring <math.h> */
+    NurResult_f64 sq_res = nur_sqrt(16.0);
+    if (!NUR_IS_OK(sq_res) || NUR_VALUE(sq_res) != 4.0) return 0;
 
     /* ctype.h */
     if (!isdigit('5')) return 0;
@@ -92,10 +88,10 @@ static int test_all_constructors_and_shortcuts(void) {
     if (!NUR_IS_OK(h_usize) || NUR_VALUE(h_usize) != 2048) return 0;
 
     NurResult_f32 h_f32 = NUR_H(1.25f);
-    if (!NUR_IS_OK(h_f32) || fabs(NUR_VALUE(h_f32) - 1.25f) > 0.001) return 0;
+    if (!NUR_IS_OK(h_f32) || NUR_VALUE(h_f32) < 1.24f || NUR_VALUE(h_f32) > 1.26f) return 0;
 
     NurResult_f64 h_f64 = NUR_H(3.14159);
-    if (!NUR_IS_OK(h_f64) || fabs(NUR_VALUE(h_f64) - 3.14159) > 0.00001) return 0;
+    if (!NUR_IS_OK(h_f64) || NUR_VALUE(h_f64) < 3.1415 || NUR_VALUE(h_f64) > 3.1416) return 0;
 
     NurResult_cstr h_cstr = NUR_H("Universal string");
     if (!NUR_IS_OK(h_cstr) || strcmp(NUR_VALUE(h_cstr), "Universal string") != 0) return 0;

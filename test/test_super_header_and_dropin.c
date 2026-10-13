@@ -95,11 +95,9 @@ static void isr_uart_rx_handler(HardwareUart *uart, uint8_t *out_byte, uint8_t *
 }
 
 int main(void) {
-    double sq;
     char text[6];
     size_t len;
     int r;
-    time_t t;
     NurResult_f64 sq_ok;
     NurResult_f64 sq_err;
     NurResult_usize str_ok;
@@ -119,21 +117,14 @@ int main(void) {
     /* 1. Super-header drop-in standard C tests (zero extra includes required) */
     printf("1. Standard printf works\n");
 
-    sq = sqrt(16.0);
-    assert(sq == 4.0);
-    printf("2. Standard sqrt(16.0) = %f\n", sq);
-
     memcpy(text, "Hello", 6);
     len = strlen(text);
     assert(len == 5);
-    printf("3. Standard strlen(\"Hello\") = %lu\n", (unsigned long)len);
+    printf("2. Standard strlen(\"Hello\") = %lu\n", (unsigned long)len);
 
     r = rand();
     (void)r;
-    printf("4. Standard rand() = %d\n", r);
-
-    time(&t);
-    printf("5. Standard time() = %ld\n", (long)t);
+    printf("3. Standard rand() = %d\n", r);
 
     /* 2. Built-in drop-in safe helpers (nur_sqrt, nur_strlen) */
     sq_ok = nur_sqrt(25.0);

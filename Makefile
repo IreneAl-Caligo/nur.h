@@ -107,9 +107,15 @@ $(C23_TEST_BINARY): $(C23_TEST_SRC) $(HEADER)
 
 # Run tests
 .PHONY: test
-test: $(TEST_BINARY) test-universal test-all-features test-freestanding test-compact test-standalone test-odr test-cpp test-dropin
+test: $(TEST_BINARY) test-abi test-universal test-all-features test-freestanding test-compact test-standalone test-odr test-cpp test-dropin
 	@echo "Running test suite..."
 	$(RUN_PREFIX)$(TEST_BINARY)
+
+.PHONY: test-abi
+test-abi: $(HEADER)
+	@echo "Running ABI layout freeze verification test..."
+	$(CC) $(CFLAGS_C11) -o test/test_abi_layout$(EXE) test/test_abi_layout.c
+	$(RUN_PREFIX)test/test_abi_layout$(EXE)
 
 .PHONY: test-universal
 test-universal: $(HEADER)
