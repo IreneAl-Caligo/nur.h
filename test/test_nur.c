@@ -11,6 +11,7 @@
 #  endif
 #  pragma warning(disable: 4996)
 #  pragma warning(disable: 4714)
+#  pragma warning(disable: 4702)
 #endif
 
 #if defined(__clang__)
