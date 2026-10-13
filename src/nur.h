@@ -168,6 +168,10 @@ extern "C" {
     #include <stdlib.h>
 #endif
 
+#ifndef NUR_NO_LIMITS
+    #include <limits.h>
+#endif
+
 #ifndef NUR_NO_CTYPE
     #include <ctype.h>
 #endif
@@ -1787,47 +1791,7 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 
 #else
 
-/* Non-GNU: single-evaluation on C11+ and MSVC via _Generic dispatch */
-#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || (defined(_MSC_VER) && _MSC_VER >= 1928)
-#define NUR_UNWRAP(r) \
-    _Generic((r), \
-        NurResult_i32:        nur_unwrap_i32, \
-        NurResult_i64:        nur_unwrap_i64, \
-        NurResult_usize:      nur_unwrap_usize, \
-        NurResult_f32:        nur_unwrap_f32, \
-        NurResult_f64:        nur_unwrap_f64, \
-        NurResult_cstr:       nur_unwrap_cstr, \
-        NurResult_cstr_const: nur_unwrap_cstr_const, \
-        NurResult_ptr:        nur_unwrap_ptr, \
-        NurResult_bool:       nur_unwrap_bool, \
-        NurResult_u32:        nur_unwrap_u32, \
-        NurResult_u64:        nur_unwrap_u64, \
-        NurResult_i8:         nur_unwrap_i8, \
-        NurResult_i16:        nur_unwrap_i16, \
-        NurResult_u8:         nur_unwrap_u8, \
-        NurResult_u16:        nur_unwrap_u16 \
-    )(r)
-
-#define NUR_EXPECT(r, msg) \
-    _Generic((r), \
-        NurResult_i32:        nur_expect_i32, \
-        NurResult_i64:        nur_expect_i64, \
-        NurResult_usize:      nur_expect_usize, \
-        NurResult_f32:        nur_expect_f32, \
-        NurResult_f64:        nur_expect_f64, \
-        NurResult_cstr:       nur_expect_cstr, \
-        NurResult_cstr_const: nur_expect_cstr_const, \
-        NurResult_ptr:        nur_expect_ptr, \
-        NurResult_bool:       nur_expect_bool, \
-        NurResult_u32:        nur_expect_u32, \
-        NurResult_u64:        nur_expect_u64, \
-        NurResult_i8:         nur_expect_i8, \
-        NurResult_i16:        nur_expect_i16, \
-        NurResult_u8:         nur_expect_u8, \
-        NurResult_u16:        nur_expect_u16 \
-    )((r), (msg))
-#else
-/* Strict C89/C99 without statement expressions */
+/* Universal single/portable expression fallback supporting all standard and custom Result types */
 #define NUR_UNWRAP(r) \
     (NUR_LIKELY((r).ok) \
         ? (r).u.value \
@@ -1837,8 +1801,6 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
     (NUR_LIKELY((r).ok) \
         ? (r).u.value \
         : (nur_internal_panic_msg((msg), (r).u.error, NUR_LOC_FILE, NUR_LOC_LINE), (r).u.value))
-#endif
-
 #endif
 
 /**

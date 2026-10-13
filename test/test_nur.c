@@ -415,6 +415,7 @@ cleanup_void:
 }
 
 /* Test NUR_TRY_AUTO in strict C mode */
+#if defined(NUR_HAS_TYPEOF) || defined(__GNUC__) || defined(__clang__) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L)
 static NurResult_i32 auto_pipeline(int x) {
     int v1 = 0;
     NUR_TRY_AUTO(i32, v1, may_fail(x));
@@ -430,6 +431,12 @@ static int test_try_auto(void) {
 
     return 1;
 }
+#else
+static int test_try_auto(void) {
+    /* Skipped on compilers lacking typeof (such as MSVC in C11/C17 mode) */
+    return 1;
+}
+#endif
 
 /* Test semantic Win32 mapping */
 static int test_win32_mapping(void) {

@@ -16,6 +16,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <limits.h>
 #include <nur.h>
 
 /* Platform-specific temp directory */
