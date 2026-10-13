@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 100% ISO C89/C90 compatible, compiling cleanly across C89, C99, C11, C17, C23, and C++11 with zero warnings under `-Wall -Wextra -Wpedantic`.
 - **Opt-In Safety Architecture Documentation**:
   - Expanded `README.md`, `AGENTS.md` (Section 7), and `AI_POLICY.md` (`NUR-AI-008`) with architectural clarity on when and how to apply `nur.h` with zero runtime overhead.
+- **Zero-Friction Drop-in Terminal Demo (`assets/demo_hello_world.svg`)**: Added interactive animated SVG showing transition from `#include <stdio.h>` to `#include "nur.h"` with instant `printf("Hello, World!\n")` drop-in compatibility and zero heap allocation.
 
 ### Fixed
 - **C++ Smoke Test Assertion Hardening under NDEBUG**: Replaced standard `assert(...)` in `test/test_cpp_smoke.cpp` with an explicit `EXPECT(...)` check that outputs failure diagnostics to `stderr` and returns a non-zero exit code (`1`), ensuring assertions are not silently lost when compiling Release or `-DNDEBUG` builds. Decoupled test from `<iostream>` and `<string>` to eliminate clangd standard library header parsing incompatibilities.

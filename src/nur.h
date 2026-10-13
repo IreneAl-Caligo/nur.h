@@ -758,7 +758,7 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e, const char *f
     NUR_INLINE T nur_unwrap_or_##suffix(NurResult_##suffix r_, T fallback_) { \
         return r_.ok ? r_.u.value : fallback_; \
     } \
-    struct _nur_dummy_decl_e_##suffix
+    struct nur_internal_dummy_decl_e_##suffix
 
 /**
  * Generate a canonical Result<T, nur_error_t> type.
@@ -831,7 +831,7 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e, const char *f
         } \
         return r_.u.value; \
     } \
-    struct _nur_dummy_decl_##suffix
+    struct nur_internal_dummy_decl_##suffix
 
 /*============================================================================
  * PREDEFINED RESULT TYPES
@@ -982,7 +982,7 @@ NUR_NODISCARD NUR_INLINE NurResult_void nur_err_void(nur_error_t err_) {
         for (i_ = 0; i_ < sizeof(T); ++i_) p_[i_] = 0; \
         return o_; \
     } \
-    struct _nur_dummy_opt_decl_##suffix
+    struct nur_internal_dummy_opt_decl_##suffix
 
 /*============================================================================
  * PREDEFINED OPTION TYPES
@@ -2982,13 +2982,13 @@ NUR_INLINE NurResult_usize nur_strlen(const char *str) {
     #define prinf(...) _Static_assert(0, "[nur.h Typo Guard] Typo detected: 'prinf' is not a valid C function. Did you mean 'printf'?")
 #elif (defined(__GNUC__) || defined(__clang__))
     #define gets(buf) do { \
-        extern void _nur_shield_banned_gets(void) __attribute__((error("[nur.h Security Shield] 'gets()' is inherently unsafe and banned! Use 'fgets()' instead."))); \
-        _nur_shield_banned_gets(); \
+        extern void nur_internal_shield_banned_gets(void) __attribute__((error("[nur.h Security Shield] 'gets()' is inherently unsafe and banned! Use 'fgets()' instead."))); \
+        nur_internal_shield_banned_gets(); \
     } while(0)
     #if defined(NUR_C99) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
     #define prinf(...) do { \
-        extern void _nur_shield_typo_prinf(void) __attribute__((error("[nur.h Typo Guard] Typo detected: 'prinf'. Did you mean 'printf'?"))); \
-        _nur_shield_typo_prinf(); \
+        extern void nur_internal_shield_typo_prinf(void) __attribute__((error("[nur.h Typo Guard] Typo detected: 'prinf'. Did you mean 'printf'?"))); \
+        nur_internal_shield_typo_prinf(); \
     } while(0)
     #endif
 #endif

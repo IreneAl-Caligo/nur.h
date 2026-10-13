@@ -17,18 +17,21 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
   <img src="assets/demo.svg" alt="nur.h 5-Second Interactive Terminal Demo" width="94%">
   <br><br>
   <details>
-    <summary><b>🎬 Toggle Specialized Feature Demos (<code>NUR_H</code>, <code>NUR_OK</code>, Native C, C++11)</b></summary>
+    <summary><b>🎬 Toggle Specialized Feature Demos (Drop-in Hello World, NUR_H, NUR_OK, Native C, C++11)</b></summary>
     <br>
-    <p align="left"><b>1. Universal Single-Token Constructor (<code>NUR_H(val)</code> in C11+)</b></p>
+    <p align="left"><b>1. Zero-Friction Drop-in (Replacing <code>&lt;stdio.h&gt;</code> with <code>"nur.h"</code>)</b></p>
+    <img src="assets/demo_hello_world.svg" alt="Zero-Friction Drop-in Demo" width="94%">
+    <br><br>
+    <p align="left"><b>2. Universal Single-Token Constructor (<code>NUR_H(val)</code> in C11+)</b></p>
     <img src="assets/demo_nur_h.svg" alt="NUR_H Universal Constructor Demo" width="94%">
     <br><br>
-    <p align="left"><b>2. Explicit Cross-Standard Constructor (<code>NUR_OK(suffix, val)</code> in C89–C23)</b></p>
+    <p align="left"><b>3. Explicit Cross-Standard Constructor (<code>NUR_OK(suffix, val)</code> in C89–C23)</b></p>
     <img src="assets/demo_nur_ok.svg" alt="NUR_OK Constructor Demo" width="94%">
     <br><br>
-    <p align="left"><b>3. Native Standard C Super-Header (Zero Extra Headers &amp; Bare-Metal Speed)</b></p>
+    <p align="left"><b>4. Native Standard C Super-Header (Zero Extra Headers &amp; Bare-Metal Speed)</b></p>
     <img src="assets/demo_native.svg" alt="Native Standard C Demo" width="94%">
     <br><br>
-    <p align="left"><b>4. Modern C++ Integration (<code>namespace nur</code> in C++11+)</b></p>
+    <p align="left"><b>5. Modern C++ Integration (<code>namespace nur</code> in C++11+)</b></p>
     <img src="assets/demo_cpp.svg" alt="Modern C++ Demo" width="94%">
     <br>
   </details>
@@ -88,10 +91,40 @@ int port = NUR_VALUE(r);
 curl -fsSL https://raw.githubusercontent.com/IreneAl-Caligo/nur.h/master/src/nur.h -o include/nur.h
 ```
 
-### 2. Basic Example
+### 2. Zero-Friction Drop-in: From `<stdio.h>` to `"nur.h"`
+
+Any standard C program:
+```c
+#include <stdio.h>
+
+int main(void) {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+Instantly becomes an upgraded, safe, modern C program by simply replacing `<stdio.h>` with `"nur.h"`:
 ```c
 #include "nur.h"
-#include <stdio.h>
+
+int main(void) {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+> [!TIP]
+> **Super-Header Ergonomics**: `nur.h` is a batteries-included super-header bringing `<stdio.h>`, `<stdlib.h>`, `<string.h>`, `<math.h>`, and `<time.h>` out of the box with zero heap allocation. Your existing code compiles without changes, and immediately gains access to `Result<T,E>`, `Option<T>`, safe arithmetic, and compiler-enforced `[[nodiscard]]` safety.
+
+<details>
+<summary><b>📺 Interactive Terminal Demo: Zero-Friction Drop-In ("Hello, World!")</b></summary>
+<br>
+<img src="assets/demo_hello_world.svg" alt="Zero-Friction Drop-In Demo" width="100%">
+</details>
+
+### 3. Rust-Style Error Handling Example
+```c
+#include "nur.h"
 
 NUR_NODISCARD NurResult_i32 safe_divide(int32_t a, int32_t b) {
     if (b == 0) {
@@ -116,7 +149,7 @@ int main(void) {
 }
 ```
 
-### 3. Compile cleanly across any standard
+### 4. Compile cleanly across any standard
 ```bash
 gcc -std=c99 -Wall -Wextra -Wpedantic -Iinclude main.c -o main
 ```
