@@ -31,6 +31,12 @@
 #    define _CRT_SECURE_NO_WARNINGS 1
 #  endif
 #  pragma warning(disable: 4996)
+#  pragma warning(disable: 4714)
+#endif
+
+#if defined(__clang__)
+#  pragma clang diagnostic ignored "-Wgnu-auto-type"
+#  pragma clang diagnostic ignored "-Wgnu-statement-expression"
 #endif
 
 #ifdef __cplusplus
@@ -91,8 +97,8 @@ extern "C" {
     #define NUR_TYPEOF(expr) typeof(expr)
     #define NUR_AUTO auto
 #elif defined(NUR_GNU_EXTENSIONS)
-    #define NUR_TYPEOF(expr) __typeof__(expr)
-    #define NUR_AUTO __auto_type
+    #define NUR_TYPEOF(expr) __extension__ __typeof__(expr)
+    #define NUR_AUTO __extension__ __auto_type
 #endif
 
 /*============================================================================
@@ -252,7 +258,7 @@ extern "C" {
     #define NUR_INLINE  static inline
     #define NUR_NOINLINE __attribute__((noinline))
 #elif defined(NUR_MSVC)
-    #define NUR_INLINE   static __forceinline
+    #define NUR_INLINE   static __inline
     #define NUR_NOINLINE __declspec(noinline)
 #else
     #define NUR_INLINE   static inline

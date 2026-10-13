@@ -10,6 +10,12 @@
 #    define _CRT_SECURE_NO_WARNINGS 1
 #  endif
 #  pragma warning(disable: 4996)
+#  pragma warning(disable: 4714)
+#endif
+
+#if defined(__clang__)
+#  pragma clang diagnostic ignored "-Wgnu-auto-type"
+#  pragma clang diagnostic ignored "-Wgnu-statement-expression"
 #endif
 
 #include <stdio.h>
