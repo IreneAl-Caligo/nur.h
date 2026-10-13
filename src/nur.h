@@ -35,9 +35,9 @@ extern "C" {
  *===========================================================================*/
 #define NUR_VERSION_MAJOR 1
 #define NUR_VERSION_MINOR 3
-#define NUR_VERSION_PATCH 1
-#define NUR_VERSION_STRING "1.3.1"
-#define NUR_VERSION_NUMBER 10301
+#define NUR_VERSION_PATCH 2
+#define NUR_VERSION_STRING "1.3.2"
+#define NUR_VERSION_NUMBER 10302
 
 #ifdef NUR_LITE
     #define NUR_NO_EXTENSIONS 1
@@ -141,6 +141,13 @@ extern "C" {
     #include <stdbool.h>
     #include <stddef.h>
     #include <stdint.h>
+#endif
+
+#ifndef INT32_MAX
+    #define INT32_MAX 2147483647L
+#endif
+#ifndef INT32_MIN
+    #define INT32_MIN (-2147483647L - 1L)
 #endif
 
 #ifndef NUR_NO_ERRNO
@@ -323,7 +330,10 @@ extern "C" {
  *   50-59:  System errors
  *   >=1000: User-defined errors
  */
-typedef enum {
+#ifdef NUR_GNU_EXTENSIONS
+__extension__
+#endif
+typedef enum nur_error_code_t {
     NUR_E_NONE = 0,
     
     /* Input/Validation Errors (1-9) */
@@ -375,7 +385,7 @@ typedef enum {
     NUR_E_SYSTEM = 55,
     
     /* User-defined error codes start here */
-    NUR_E_USER_BASE = 1000
+    NUR_E_USER_BASE = 1000,
 } nur_error_code_t;
 
 /* Backward-compatibility and POSIX taxonomy alias */
@@ -528,7 +538,12 @@ NUR_INLINE nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, cons
 
 #define NUR_ERROR_CAUSE(err) ((const char *)0)
 #define NUR_ERROR_CONTEXT_COUNT(err) ((unsigned char)0)
-#define NUR_ERROR_CONTEXT_AT(err, idx) (((void)(idx)), (const char *)0)
+
+NUR_INLINE const char *nur_error_context_at(const nur_error_t *err, size_t idx) {
+    (void)err; (void)idx;
+    return (const char *)0;
+}
+#define NUR_ERROR_CONTEXT_AT(err, idx) nur_error_context_at(&(err), (size_t)(idx))
 #else
 NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
     int i_;
@@ -581,7 +596,14 @@ NUR_INLINE nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, cons
  */
 #define NUR_ERROR_CAUSE(err) ((err).cause)
 #define NUR_ERROR_CONTEXT_COUNT(err) ((err).context_count)
-#define NUR_ERROR_CONTEXT_AT(err, idx) (((idx) < (err).context_count) ? (err).context_chain[idx] : (const char *)0)
+
+NUR_INLINE const char *nur_error_context_at(const nur_error_t *err, size_t idx) {
+    if (err != (const nur_error_t *)0 && idx < (size_t)err->context_count) {
+        return err->context_chain[idx];
+    }
+    return (const char *)0;
+}
+#define NUR_ERROR_CONTEXT_AT(err, idx) nur_error_context_at(&(err), (size_t)(idx))
 #endif
 
 /**
@@ -872,7 +894,7 @@ NUR_INLINE bool nur_is_ok_void(NurResult_void r_) {
 
 NUR_NODISCARD NUR_UNUSED
 NUR_INLINE bool nur_is_err_void(NurResult_void r_) {
-    return !r_.ok;
+    return (bool)!r_.ok;
 }
 
 NUR_NODISCARD NUR_UNUSED
@@ -986,7 +1008,7 @@ NUR_OPTION_TYPE(void *, ptr);
  * CONVENIENCE MACROS & UNIVERSAL TYPE ENGINE (Pillar 1)
  *===========================================================================*/
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 } /* temporarily exit extern "C" for C++ templates */
 /* C++11+ universal constructor engine using native template traits */
 template <typename T>
@@ -1002,7 +1024,11 @@ template <> struct nur_cpp_result_traits<unsigned int> { typedef NurResult_usize
 template <> struct nur_cpp_result_traits<long> { typedef NurResult_i64 type; static type make(int64_t v) { return nur_ok_i64(v); } };
 template <> struct nur_cpp_result_traits<unsigned long> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
 template <> struct nur_cpp_result_traits<long long> { typedef NurResult_i64 type; static type make(int64_t v) { return nur_ok_i64(v); } };
+#if (defined(__SIZEOF_SIZE_T__) && __SIZEOF_SIZE_T__ < 8) || (defined(UINTPTR_MAX) && UINTPTR_MAX <= 0xFFFFFFFFU) || defined(__i386__) || defined(_M_IX86) || (defined(__arm__) && !defined(__aarch64__))
+template <> struct nur_cpp_result_traits<unsigned long long> { typedef NurResult_u64 type; static type make(uint64_t v) { return nur_ok_u64(v); } };
+#else
 template <> struct nur_cpp_result_traits<unsigned long long> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
+#endif
 template <> struct nur_cpp_result_traits<float> { typedef NurResult_f32 type; static type make(float v) { return nur_ok_f32(v); } };
 template <> struct nur_cpp_result_traits<double> { typedef NurResult_f64 type; static type make(double v) { return nur_ok_f64(v); } };
 template <> struct nur_cpp_result_traits<char*> { typedef NurResult_cstr type; static type make(char *v) { return nur_ok_cstr(v); } };
@@ -1036,7 +1062,11 @@ NUR_UNUSED NUR_INLINE NurResult_i64 nur_internal_gen_long(long v) { return nur_o
 NUR_UNUSED NUR_INLINE NurResult_i64 nur_internal_gen_i64(int64_t v) { return nur_ok_i64(v); }
 NUR_UNUSED NUR_INLINE NurResult_usize nur_internal_gen_uint(unsigned int v) { return nur_ok_usize((size_t)v); }
 NUR_UNUSED NUR_INLINE NurResult_usize nur_internal_gen_ulong(unsigned long v) { return nur_ok_usize((size_t)v); }
+#if (defined(__SIZEOF_SIZE_T__) && __SIZEOF_SIZE_T__ < 8) || (defined(UINTPTR_MAX) && UINTPTR_MAX <= 0xFFFFFFFFU) || defined(__i386__) || defined(_M_IX86) || (defined(__arm__) && !defined(__aarch64__))
+NUR_UNUSED NUR_INLINE NurResult_u64 nur_internal_gen_ullong(unsigned long long v) { return nur_ok_u64((uint64_t)v); }
+#else
 NUR_UNUSED NUR_INLINE NurResult_usize nur_internal_gen_ullong(unsigned long long v) { return nur_ok_usize((size_t)v); }
+#endif
 NUR_UNUSED NUR_INLINE NurResult_f32 nur_internal_gen_f32(float v) { return nur_ok_f32(v); }
 NUR_UNUSED NUR_INLINE NurResult_f64 nur_internal_gen_f64(double v) { return nur_ok_f64(v); }
 NUR_UNUSED NUR_INLINE NurResult_cstr nur_internal_gen_cstr(char *v) { return nur_ok_cstr(v); }
@@ -1368,7 +1398,7 @@ NUR_INLINE void nur_internal_sink_puti(nur_internal_sink_t *sink, nur_internal_i
     if (value < 0) {
         nur_internal_sink_putc(sink, '-');
         /* Fix -Wsign-conversion: cast through unsigned integer explicitly */
-        nur_internal_sink_putu(sink, (nur_internal_uintmax_t)(0 - (nur_internal_uintmax_t)value));
+        nur_internal_sink_putu(sink, 0 - (nur_internal_uintmax_t)value);
     } else {
         nur_internal_sink_putu(sink, (nur_internal_uintmax_t)value);
     }
@@ -1619,7 +1649,7 @@ typedef void (*nur_panic_handler_t)(const char *msg, const nur_error_t *e,
 #define NUR_CUSTOM_PANIC_HANDLER_STORAGE static
 #endif
 
-NUR_CUSTOM_PANIC_HANDLER_STORAGE nur_panic_handler_t nur_internal_custom_panic_handler = NULL;
+NUR_UNUSED NUR_CUSTOM_PANIC_HANDLER_STORAGE nur_panic_handler_t nur_internal_custom_panic_handler = NULL;
 
 /**
  * Set custom panic handler. Set NULL to restore default stderr+abort behaviour.
@@ -1647,8 +1677,8 @@ static void nur_internal_panic_result(nur_error_t e,
     }
 #ifndef NUR_NO_STDIO
     nur_error_format(&e, buffer, sizeof(buffer));
-    fprintf(stderr, "nur panic at %s:%u: %s\n", file ? file : "<unknown>", line, buffer);
-    fflush(stderr);
+    (void)fprintf(stderr, "nur panic at %s:%u: %s\n", file ? file : "<unknown>", line, buffer);
+    (void)fflush(stderr);
 #endif
     NUR_PANIC_ABORT();
 }
@@ -1664,8 +1694,8 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
     }
 #ifndef NUR_NO_STDIO
     nur_error_format(&e, buffer, sizeof(buffer));
-    fprintf(stderr, "nur panic at %s:%u: %s: %s\n", file ? file : "<unknown>", line, msg ? msg : "", buffer);
-    fflush(stderr);
+    (void)fprintf(stderr, "nur panic at %s:%u: %s: %s\n", file ? file : "<unknown>", line, msg ? msg : "", buffer);
+    (void)fflush(stderr);
 #endif
     NUR_PANIC_ABORT();
 }
@@ -1878,7 +1908,8 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
     __extension__ ({ \
         NUR_AUTO _nur_uwo_ = (o); \
         if (NUR_UNLIKELY(!_nur_uwo_.some)) { \
-            nur_internal_panic_msg("called NUR_UNWRAP_OPTION on a None value", nur_error_void_val(nur_ok_void()), NUR_LOC_FILE, NUR_LOC_LINE); \
+            nur_internal_panic_msg("called NUR_UNWRAP_OPTION on a None value", \
+                NUR_ERROR(NUR_E_INVALID_STATE, "Option is None"), NUR_LOC_FILE, NUR_LOC_LINE); \
         } \
         _nur_uwo_.value; \
     })
@@ -1886,14 +1917,15 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
 #define NUR_UNWRAP_OPTION(o) \
     (NUR_LIKELY((o).some) \
         ? (o).value \
-        : (nur_internal_panic_msg("called NUR_UNWRAP_OPTION on a None value", nur_error_void_val(nur_ok_void()), NUR_LOC_FILE, NUR_LOC_LINE), (o).value))
+        : (nur_internal_panic_msg("called NUR_UNWRAP_OPTION on a None value", \
+            NUR_ERROR(NUR_E_INVALID_STATE, "Option is None"), NUR_LOC_FILE, NUR_LOC_LINE), (o).value))
 #endif
 
 /**
  * Propagate None from Option in functions returning an Option.
  * If expr is None, returns None early from enclosing function.
  */
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
 #define NUR_OPTION_TRY(lhs, expr) \
     do { \
         __auto_type _nur_opt_tmp_ = (expr); \
@@ -1964,19 +1996,18 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
 #if defined(NUR_GNU_EXTENSIONS) || defined(__cplusplus)
 
 /**
- * Map a successful result through a transform function, preserving error.
+ * Map a successful Result value using func, preserving error.
  *
- * NUR_MAP(result, func) evaluates result once. If Ok, applies func to the
- * value and returns a new Ok with the result. If Err, returns the error.
+ * Evaluates result once. If Ok, applies func to the payload and returns
+ * a new Ok with the result. If Err, propagates the existing error.
  *
- * IMPORTANT: func must accept the payload type and return the SAME type.
- * For type-changing maps, use NUR_AND_THEN with a wrapper function that
- * returns the new NurResult_<suffix> type.
+ * NOTE: NUR_MAP is restricted to same-type transformations (T -> T).
+ * For mapping between different types (T -> U), use NUR_MAP_TO(target_suffix, result, func).
  *
- * GNU extension: uses statement expressions for single-evaluation.
+ * func signature: <value_type> func(<value_type>)
  *
  * Usage:
- *   static int double_it(int v) { return v * 2; }
+ *   static int double_it(int x) { return x * 2; }
  *   NurResult_i32 r2 = NUR_MAP(r, double_it);
  */
 #define NUR_MAP(result, func) \
@@ -1986,6 +2017,16 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
             _nur_map_r_.u.value = (func)(_nur_map_r_.u.value); \
         } \
         _nur_map_r_; \
+    })
+
+/**
+ * Typed map converting Ok value into target type 'suffix'.
+ * On error, constructs a result of target type 'suffix' with the original error.
+ */
+#define NUR_MAP_TO(suffix, result, func) \
+    __extension__ ({ \
+        NUR_AUTO _nur_mapto_r_ = (result); \
+        _nur_mapto_r_.ok ? nur_ok_##suffix((func)(_nur_mapto_r_.u.value)) : nur_err_##suffix(_nur_mapto_r_.u.error); \
     })
 
 /**
@@ -2013,11 +2054,13 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
 /**
  * NUR_MAP_TO - Portable typed map for non-GNU and ANSI C compilers.
  * Maps Ok value using 'func' into a new Ok result of target type 'suffix'.
+ * On error, constructs a result of target type 'suffix' with the original error.
  */
 #define NUR_MAP_TO(suffix, result, func) \
-    ((result).ok ? nur_ok_##suffix((func)((result).u.value)) : (result))
+    ((result).ok ? nur_ok_##suffix((func)((result).u.value)) : nur_err_##suffix((result).u.error))
 
 #if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11)
+/* Restricted to same-type mappings where func returns the same type as result */
 #define NUR_MAP(result, func) \
     ((result).ok ? NUR_H((func)((result).u.value)) : (result))
 #endif
@@ -2055,11 +2098,11 @@ NUR_INLINE void nur_expect_void_internal(NurResult_void r_, const char *msg_, co
  * Works across all NurResult_<T> types since .ok is at byte offset 0.
  */
 NUR_INLINE bool nur_result_is_ok(const void *result_ptr) {
-    return result_ptr != NULL && *(const bool *)result_ptr;
+    return (bool)(result_ptr != NULL && *(const bool *)result_ptr);
 }
 
 NUR_INLINE bool nur_result_is_err(const void *result_ptr) {
-    return result_ptr == NULL || !(*(const bool *)result_ptr);
+    return (bool)(result_ptr == NULL || !(*(const bool *)result_ptr));
 }
 
 NUR_INLINE nur_error_code_t nur_error_code_of(const nur_error_t *err) {
@@ -2530,7 +2573,7 @@ NUR_INLINE void nur_internal_cleanup_fclose(void *ptr_to_file) {
     if (ptr_to_file != NULL) {
         FILE **fp = (FILE **)ptr_to_file;
         if (*fp != NULL) {
-            fclose(*fp);
+            (void)fclose(*fp);
             *fp = NULL;
         }
     }
@@ -2596,45 +2639,45 @@ NUR_INLINE void nur_internal_cleanup_fclose(void *ptr_to_file) {
 NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
     if (err == NULL || f == NULL) return;
     
-    fprintf(f, "[%s]", nur_error_code_name(err->code));
+    (void)fprintf(f, "[%s]", nur_error_code_name(err->code));
     
     if (err->message) {
-        fprintf(f, " %s", err->message);
+        (void)fprintf(f, " %s", err->message);
     }
 
 #ifdef NUR_COMPACT_ERRORS
     if (err->line > 0) {
-        fprintf(f, " (line: %u)", err->line);
+        (void)fprintf(f, " (line: %u)", err->line);
     }
-    fprintf(f, "\n");
+    (void)fprintf(f, "\n");
 #else
     if (err->context) {
-        fprintf(f, " (context: %s)", err->context);
+        (void)fprintf(f, " (context: %s)", err->context);
     }
     
     if (err->cause) {
-        fprintf(f, " (caused by: %s)", err->cause);
+        (void)fprintf(f, " (caused by: %s)", err->cause);
     }
     
     if (err->sys != 0) {
-        fprintf(f, " (sys: %d)", err->sys);
+        (void)fprintf(f, " (sys: %d)", err->sys);
     }
     
     if (err->file && err->func) {
-        fprintf(f, " at %s:%u in %s()", err->file, err->line, err->func);
+        (void)fprintf(f, " at %s:%u in %s()", err->file, err->line, err->func);
     }
     
-    fprintf(f, "\n");
+    (void)fprintf(f, "\n");
 
 #ifdef NUR_ENABLE_BACKTRACE
     if (err->trace_count > 0) {
         int i;
-        fprintf(f, "Stacktrace:\n");
+        (void)fprintf(f, "Stacktrace:\n");
 #if defined(__linux__) || defined(__APPLE__)
         backtrace_symbols_fd(err->trace, err->trace_count, fileno(f));
 #else
         for (i = 0; i < err->trace_count; i++) {
-            fprintf(f, "  [%d] %p\n", i, err->trace[i]);
+            (void)fprintf(f, "  [%d] %p\n", i, err->trace[i]);
         }
 #endif
     }
@@ -2660,14 +2703,14 @@ NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
  *   nur_error_log_json(&NUR_ERROR_OF(res), stderr);
  */
 NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
-    char buffer[512];
+    char buffer[NUR_PRINT_BUFFER_SIZE];
     size_t len;
     if (err == NULL || f == NULL) return;
     len = nur_error_json(err, buffer, sizeof(buffer));
     (void)len;
-    fputs(buffer, f);
-    fputc('\n', f);
-    fflush(f);
+    (void)fputs(buffer, f);
+    (void)fputc('\n', f);
+    (void)fflush(f);
 }
 
 /**
@@ -2699,8 +2742,12 @@ NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
  */
 #define NUR_ASSERT_ERR(r, expected_code) \
     do { \
-        if (NUR_UNLIKELY(NUR_IS_OK(r) || NUR_ERROR_OF(r).code != (expected_code))) { \
-            nur_internal_panic_msg("NUR_ASSERT_ERR failed", NUR_ERROR_OF(r), NUR_LOC_FILE, NUR_LOC_LINE); \
+        if (NUR_UNLIKELY(NUR_IS_OK(r))) { \
+            nur_internal_panic_msg("NUR_ASSERT_ERR failed: expected Err, got Ok", \
+                NUR_ERROR(NUR_E_INVALID_STATE, "result was Ok"), NUR_LOC_FILE, NUR_LOC_LINE); \
+        } else if (NUR_UNLIKELY(NUR_ERROR_OF(r).code != (expected_code))) { \
+            nur_internal_panic_msg("NUR_ASSERT_ERR failed: error code mismatch", \
+                NUR_ERROR_OF(r), NUR_LOC_FILE, NUR_LOC_LINE); \
         } \
     } while (0)
 
@@ -2856,22 +2903,31 @@ NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t
     }
     read_bytes = fread(buf, 1, buf_size - 1, f);
     if (ferror(f)) {
-        fclose(f);
+        (void)fclose(f);
         return nur_err_cstr(nur_internal_make_error(
             NUR_E_IO, errno,
             "I/O error while reading file", path,
             NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
     }
     /* Guard against silent truncation: verify file does not have remaining unread bytes */
-    if (read_bytes == buf_size - 1 && fgetc(f) != EOF) {
-        fclose(f);
-        return nur_err_cstr(nur_internal_make_error(
-            NUR_E_TRUNCATED, 0,
-            "Buffer capacity insufficient: file truncated", path,
-            NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+    if (read_bytes == buf_size - 1) {
+        int next_ch = fgetc(f);
+        if (next_ch != EOF) {
+            (void)fclose(f);
+            return nur_err_cstr(nur_internal_make_error(
+                NUR_E_TRUNCATED, 0,
+                "Buffer capacity insufficient: file truncated", path,
+                NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+        } else if (ferror(f)) {
+            (void)fclose(f);
+            return nur_err_cstr(nur_internal_make_error(
+                NUR_E_IO, errno,
+                "I/O error while reading file", path,
+                NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
+        }
     }
     buf[read_bytes] = '\0';
-    fclose(f);
+    (void)fclose(f);
     return nur_ok_cstr(buf);
 }
 #endif /* !NUR_NO_STDIO */

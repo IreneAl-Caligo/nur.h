@@ -4,7 +4,7 @@
 
 static int32_t square(int32_t v) { return v * v; }
 
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
 static NurResult_i32 square_result(int32_t v) {
     return NUR_OK(i32, v * v);
 }
@@ -56,7 +56,7 @@ static void test_error_wrap(void) {
     puts("test_error_wrap: PASS");
 }
 
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
 static void test_map_ok(void) {
     NurResult_i32 r = NUR_OK(i32, 4);
     NurResult_i32 mapped = NUR_MAP(r, square);
@@ -90,6 +90,21 @@ static void test_and_then_err(void) {
 }
 #endif /* NUR_GNU_EXTENSIONS */
 
+static double to_double_val(int32_t v) { return (double)v * 1.5; }
+
+static void test_map_to_ok_and_err(void) {
+    NurResult_i32 r = NUR_OK(i32, 10);
+    NurResult_f64 r_mapped = NUR_MAP_TO(f64, r, to_double_val);
+    assert(NUR_IS_OK(r_mapped));
+    assert(NUR_VALUE(r_mapped) == 15.0);
+
+    NurResult_i32 r_err = NUR_ERR(i32, NUR_ERROR(NUR_E_PARSE, "fail"));
+    NurResult_f64 r_err_mapped = NUR_MAP_TO(f64, r_err, to_double_val);
+    assert(NUR_IS_ERR(r_err_mapped));
+    assert(NUR_ERROR_OF(r_err_mapped).code == NUR_E_PARSE);
+    puts("test_map_to_ok_and_err: PASS");
+}
+
 int main(void) {
     puts("=== test_result_helpers ===");
     test_is_ok_err();
@@ -98,12 +113,13 @@ int main(void) {
     test_value_or();
     test_error_is();
     test_error_wrap();
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
     test_map_ok();
     test_map_err();
     test_and_then_ok();
     test_and_then_err();
 #endif
+    test_map_to_ok_and_err();
     puts("All tests passed!");
     return 0;
 }

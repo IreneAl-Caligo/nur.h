@@ -4,47 +4,30 @@
 #include <stdbool.h>
 #include <ctype.h>
 
-#if defined(_WIN32)
+#ifdef _WIN32
+#include <direct.h>
+#define make_dir(path) _mkdir(path)
 #define POP_DIR_SEP "\\"
 #define EXE_EXT ".exe"
 #else
+#include <sys/stat.h>
+#define make_dir(path) mkdir((path), 0755)
 #define POP_DIR_SEP "/"
 #define EXE_EXT ""
 #endif
 
-typedef enum {
-    LANG_EN,
-    LANG_BN
-} lang_t;
-
-static void show_help(lang_t lang) {
-    if (lang == LANG_BN) {
-        printf("\033[1;36mnur-cc (v1.2.1) — nur.h কম্পাইলার, লিন্টার ও প্রজেক্ট স্কাফোল্ডিং টুল\033[0m\n\n");
-        printf("\033[1;33mব্যবহার:\033[0m\n");
-        printf("  nur-cc [অপশন] <ফাইল.c>           C কোড লিন্ট ও কম্পাইল করা\n");
-        printf("  nur-cc --lint <ফাইল.c>           শুধুমাত্র nur.h সেফটি ও AI রুলস পরীক্ষা করা\n");
-        printf("  nur-cc --new <প্রজেক্ট_ডিরেক্টরি>   নতুন nur.h প্রজেক্ট তৈরি (৩-মিনিট কুইক স্টার্ট)\n");
-        printf("  nur-cc --wrap \"<C সিগনেচার>\"      লেগ্যাসি ফাংশনকে NurResult-এ রূপান্তর রেসিপি তৈরি\n");
-        printf("  nur-cc --examples                রেপো-র বাস্তবমুখী ১৭টি উদাহরণ তালিকা ও ডেমো কোড\n\n");
-        printf("\033[1;33mঅপশনসমূহ:\033[0m\n");
-        printf("  -o <আউটপুট>       কম্পাইল করা বাইনারির নাম নির্ধারণ\n");
-        printf("  --fix             সেমিকোলন ও টাইপো স্বয়ংক্রিয়ভাবে ঠিক করা\n");
-        printf("  --lang=en|bn      ভাষা নির্বাচন (ডিফল্ট: en / বাংলা অটো-ডিটেক্ট)\n");
-        printf("  -h, --help        সাহায্য বার্তা প্রদর্শন\n");
-    } else {
-        printf("\033[1;36mnur-cc (v1.2.1) — nur.h Compiler, Linter & Project Scaffolding CLI\033[0m\n\n");
-        printf("\033[1;33mUsage:\033[0m\n");
-        printf("  nur-cc [options] <source.c>      Lint, build, and run C code\n");
-        printf("  nur-cc --lint <source.c>         Static AI & safety rule audit only\n");
-        printf("  nur-cc --new <project_dir>       Scaffold complete ready-to-build project\n");
-        printf("  nur-cc --wrap \"<C signature>\"    Generate NurResult wrapper from legacy signature\n");
-        printf("  nur-cc --examples                List real-world examples and snippets\n\n");
-        printf("\033[1;33mOptions:\033[0m\n");
-        printf("  -o <output>       Specify output binary name\n");
-        printf("  --fix             Automatically repair missing semicolons and typos\n");
-        printf("  --lang=en|bn      Language selection (default: en / Bengali locale auto-detected)\n");
-        printf("  -h, --help        Show this help message\n");
-    }
+static void show_help(void) {
+    (void)printf("\033[1;36mnur-cc (v1.3.2) — nur.h Compiler, Linter & Project Scaffolding CLI\033[0m\n\n");
+    (void)printf("\033[1;33mUsage:\033[0m\n");
+    (void)printf("  nur-cc [options] <source.c>      Lint, build, and run C code\n");
+    (void)printf("  nur-cc --lint <source.c>         Static safety and contract audit only\n");
+    (void)printf("  nur-cc --new <project_dir>       Scaffold complete ready-to-build project\n");
+    (void)printf("  nur-cc --wrap \"<C signature>\"    Generate NurResult wrapper from legacy signature\n");
+    (void)printf("  nur-cc --examples                List real-world examples and snippets\n\n");
+    (void)printf("\033[1;33mOptions:\033[0m\n");
+    (void)printf("  -o <output>       Specify output binary name\n");
+    (void)printf("  --fix             Automatically repair missing semicolons and typos\n");
+    (void)printf("  -h, --help        Show this help message\n");
 }
 
 static void trim_trailing_whitespace(char *str) {
@@ -65,7 +48,7 @@ static bool is_return_without_semicolon(const char *line) {
     if (*p == '\0' || *p == ';') return false;
     
     char copy[1024];
-    strncpy(copy, line, sizeof(copy) - 1);
+    (void)strncpy(copy, line, sizeof(copy) - 1);
     copy[sizeof(copy) - 1] = '\0';
     trim_trailing_whitespace(copy);
     size_t len = strlen(copy);
@@ -85,62 +68,33 @@ static bool is_return_without_semicolon(const char *line) {
     return true;
 }
 
-static void scaffold_project(const char *dir, lang_t lang) {
-#if defined(_WIN32)
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "mkdir \"%s\" 2>nul & mkdir \"%s\\src\" 2>nul", dir, dir);
-    (void)system(cmd);
-#else
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "mkdir -p \"%s/src\"", dir);
-    (void)system(cmd);
-#endif
-
+static void scaffold_project(const char *dir) {
     char header_dst[512], main_dst[512], make_dst[512];
-    snprintf(header_dst, sizeof(header_dst), "%s%csrc%cnur.h", dir, POP_DIR_SEP[0], POP_DIR_SEP[0]);
-    snprintf(main_dst, sizeof(main_dst), "%s%cmain.c", dir, POP_DIR_SEP[0]);
-    snprintf(make_dst, sizeof(make_dst), "%s%cMakefile", dir, POP_DIR_SEP[0]);
+    (void)snprintf(header_dst, sizeof(header_dst), "%s%csrc%cnur.h", dir, POP_DIR_SEP[0], POP_DIR_SEP[0]);
+    (void)snprintf(main_dst, sizeof(main_dst), "%s%cmain.c", dir, POP_DIR_SEP[0]);
+    (void)snprintf(make_dst, sizeof(make_dst), "%s%cMakefile", dir, POP_DIR_SEP[0]);
 
-    /* Write minimal main.c */
-    FILE *f_main = fopen(main_dst, "w");
-    if (f_main) {
-        fputs("/* Generated by nur-cc scaffold */\n", f_main);
-        fputs("#include \"src/nur.h\"\n", f_main);
-        fputs("#include <stdio.h>\n\n", f_main);
-        fputs("NUR_NODISCARD NurResult_i32 divide(int a, int b) {\n", f_main);
-        fputs("    if (b == 0) {\n", f_main);
-        fputs("        return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, \"division by zero\"));\n", f_main);
-        fputs("    }\n", f_main);
-        fputs("    return NUR_OK(i32, a / b);\n", f_main);
-        fputs("}\n\n", f_main);
-        fputs("int main(void) {\n", f_main);
-        fputs("    printf(\"Welcome to your new nur.h project!\\n\");\n", f_main);
-        fputs("    NurResult_i32 r = divide(10, 2);\n", f_main);
-        fputs("    if (NUR_IS_OK(r)) {\n", f_main);
-        fputs("        printf(\"10 / 2 = %d\\n\", NUR_VALUE(r));\n", f_main);
-        fputs("    } else {\n", f_main);
-        fputs("        nur_error_eprint(&NUR_ERROR_OF(r));\n", f_main);
-        fputs("    }\n", f_main);
-        fputs("    return 0;\n", f_main);
-        fputs("}\n", f_main);
-        fclose(f_main);
+    /* Guard against overwriting an existing project */
+    FILE *f_exist = fopen(main_dst, "r");
+    if (f_exist) {
+        (void)fclose(f_exist);
+        (void)fprintf(stderr, "\033[1;31mError: Destination '%s' already contains main.c! Refusing to overwrite existing project.\033[0m\n", dir);
+        exit(1);
+    }
+    f_exist = fopen(make_dst, "r");
+    if (f_exist) {
+        (void)fclose(f_exist);
+        (void)fprintf(stderr, "\033[1;31mError: Destination '%s' already contains Makefile! Refusing to overwrite existing project.\033[0m\n", dir);
+        exit(1);
     }
 
-    /* Write portable Makefile */
-    FILE *f_make = fopen(make_dst, "w");
-    if (f_make) {
-        fputs("CC ?= gcc\n", f_make);
-        fputs("CFLAGS ?= -Wall -Wextra -Wpedantic -Werror -Isrc -O2\n\n", f_make);
-        fputs("all:\n", f_make);
-        fputs("\t$(CC) $(CFLAGS) main.c -o app\n\n", f_make);
-        fputs("run: all\n", f_make);
-        fputs("\t./app\n\n", f_make);
-        fputs("clean:\n", f_make);
-        fputs("\trm -f app app.exe\n", f_make);
-        fclose(f_make);
-    }
+    (void)make_dir(dir);
+    char src_dir_path[1024];
+    (void)snprintf(src_dir_path, sizeof(src_dir_path), "%s%ssrc", dir, POP_DIR_SEP);
+    (void)make_dir(src_dir_path);
 
-    /* Copy src/nur.h if available in current dir */
+    /* Copy src/nur.h if available in current dir or parent */
+    bool copied = false;
     FILE *f_src_hdr = fopen("src/nur.h", "r");
     if (!f_src_hdr) f_src_hdr = fopen("../src/nur.h", "r");
     if (f_src_hdr) {
@@ -149,256 +103,301 @@ static void scaffold_project(const char *dir, lang_t lang) {
             char buf[4096];
             size_t n;
             while ((n = fread(buf, 1, sizeof(buf), f_src_hdr)) > 0) {
-                fwrite(buf, 1, n, f_dst_hdr);
+                (void)fwrite(buf, 1, n, f_dst_hdr);
             }
-            fclose(f_dst_hdr);
+            (void)fclose(f_dst_hdr);
+            copied = true;
         }
-        fclose(f_src_hdr);
+        (void)fclose(f_src_hdr);
     }
 
-    if (lang == LANG_BN) {
-        printf("\033[1;32m✓ প্রজেক্ট তৈরি সফল হয়েছে: '%s'!\033[0m\n", dir);
-        printf("ফাইলসমূহ তৈরি করা হয়েছে:\n");
-        printf("  - %s/main.c\n", dir);
-        printf("  - %s/Makefile\n", dir);
-        printf("  - %s/src/nur.h\n\n", dir);
-        printf("রান করতে কমান্ড দিন:\n");
-        printf("  cd %s\n", dir);
-        printf("  make run\n");
-    } else {
-        printf("\033[1;32m✓ Project successfully scaffolded into '%s'!\033[0m\n", dir);
-        printf("Created files:\n");
-        printf("  - %s/main.c\n", dir);
-        printf("  - %s/Makefile\n", dir);
-        printf("  - %s/src/nur.h\n\n", dir);
-        printf("To build and run:\n");
-        printf("  cd %s\n", dir);
-        printf("  make run\n");
+    if (!copied) {
+        (void)fprintf(stderr, "\033[1;31mError: Could not locate or copy src/nur.h into '%s'!\033[0m\n", header_dst);
+        exit(1);
     }
+
+    /* Write minimal main.c */
+    FILE *f_main = fopen(main_dst, "w");
+    if (f_main) {
+        (void)fputs("/* Generated by nur-cc scaffold */\n", f_main);
+        (void)fputs("#include \"src/nur.h\"\n", f_main);
+        (void)fputs("#include <stdio.h>\n\n", f_main);
+        (void)fputs("NUR_NODISCARD NurResult_i32 divide(int a, int b) {\n", f_main);
+        (void)fputs("    if (b == 0) {\n", f_main);
+        (void)fputs("        return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, \"division by zero\"));\n", f_main);
+        (void)fputs("    }\n", f_main);
+        (void)fputs("    return NUR_OK(i32, a / b);\n", f_main);
+        (void)fputs("}\n\n", f_main);
+        (void)fputs("int main(void) {\n", f_main);
+        (void)fputs("    printf(\"Welcome to your new nur.h project!\\n\");\n", f_main);
+        (void)fputs("    NurResult_i32 r = divide(10, 2);\n", f_main);
+        (void)fputs("    if (NUR_IS_OK(r)) {\n", f_main);
+        (void)fputs("        printf(\"10 / 2 = %d\\n\", NUR_VALUE(r));\n", f_main);
+        (void)fputs("    } else {\n", f_main);
+        (void)fputs("        nur_error_eprint(&NUR_ERROR_OF(r));\n", f_main);
+        (void)fputs("    }\n", f_main);
+        (void)fputs("    return 0;\n", f_main);
+        (void)fputs("}\n", f_main);
+        (void)fclose(f_main);
+    }
+
+    /* Write portable Makefile */
+    FILE *f_make = fopen(make_dst, "w");
+    if (f_make) {
+        (void)fputs("CC ?= gcc\n", f_make);
+        (void)fputs("CFLAGS ?= -Wall -Wextra -Wpedantic -Werror -Isrc -O2\n\n", f_make);
+        (void)fputs("all:\n", f_make);
+        (void)fputs("\t$(CC) $(CFLAGS) main.c -o app\n\n", f_make);
+        (void)fputs("run: all\n", f_make);
+        (void)fputs("\t./app\n\n", f_make);
+        (void)fputs("clean:\n", f_make);
+        (void)fputs("\trm -f app app.exe\n", f_make);
+        (void)fclose(f_make);
+    }
+
+    (void)printf("\033[1;32m✓ Project successfully scaffolded into '%s'!\033[0m\n", dir);
+    (void)printf("Created files:\n");
+    (void)printf("  - %s/main.c\n", dir);
+    (void)printf("  - %s/Makefile\n", dir);
+    (void)printf("  - %s/src/nur.h\n\n", dir);
+    (void)printf("To build and run:\n");
+    (void)printf("  cd %s\n", dir);
+    (void)printf("  make run\n");
 }
 
-static void generate_wrapper(const char *sig, lang_t lang) {
-    if (lang == LANG_BN) {
-        printf("\033[1;36m🔄 সিগনেচার রূপান্তর রেসিপি:\033[0m %s\n\n", sig);
-    } else {
-        printf("\033[1;36m🔄 NurResult Migration Recipe for:\033[0m %s\n\n", sig);
+static void generate_wrapper(const char *sig) {
+    (void)printf("\033[1;36m🔄 NurResult Migration Recipe for:\033[0m %s\n\n", sig);
+    (void)printf("/* 1. Safe NurResult wrapper function (using predefined NurResult_i32) */\n");
+    (void)printf("/* Note: For custom types other than standard i32/i64/usize/ptr, declare: */\n");
+    (void)printf("/* NUR_RESULT_TYPE(YourType, suffix); */\n\n");
+    (void)printf("NUR_NODISCARD NurResult_i32 your_func_safe(/* args */) {\n");
+    (void)printf("    int out_val = 0;\n");
+    (void)printf("    int rc = legacy_func(/* args */, &out_val);\n");
+    (void)printf("    if (rc != 0) {\n");
+    (void)printf("        return NUR_ERR(i32, NUR_ERROR_ERRNO(\"legacy_func call failed\"));\n");
+    (void)printf("    }\n");
+    (void)printf("    return NUR_OK(i32, out_val);\n");
+    (void)printf("}\n");
+}
+
+static int scan_source(const char *src_file) {
+    FILE *f = fopen(src_file, "r");
+    if (!f) {
+        (void)fprintf(stderr, "\033[1;31mError: File '%s' not found!\033[0m\n", src_file);
+        return -1;
     }
 
-    printf("/* 1. File-scope Result declaration (if not standard i32/usize/ptr) */\n");
-    printf("NUR_RESULT_TYPE(int32_t, i32);\n\n");
-    printf("/* 2. Safe NurResult wrapper function */\n");
-    printf("NUR_NODISCARD NurResult_i32 your_func_safe(/* args */) {\n");
-    printf("    int out_val = 0;\n");
-    printf("    int rc = legacy_func(/* args */, &out_val);\n");
-    printf("    if (rc != 0) {\n");
-    printf("        return NUR_ERR(i32, NUR_ERROR_ERRNO(\"legacy_func call failed\"));\n");
-    printf("    }\n");
-    printf("    return NUR_OK(i32, out_val);\n");
-    printf("}\n");
+    char raw_line[1024];
+    int line_num = 0;
+    int errors_found = 0;
+    bool last_was_ok_check = false;
+    bool in_block_comment = false;
+
+    while (fgets(raw_line, sizeof(raw_line), f)) {
+        line_num++;
+
+        /* Strip comments while preserving string literals */
+        char code_buf[1024];
+        size_t k = 0;
+        bool in_string = false;
+        size_t len = strlen(raw_line);
+
+        for (size_t i = 0; i < len && k < sizeof(code_buf) - 1; i++) {
+            char c = raw_line[i];
+            char next = (i + 1 < len) ? raw_line[i + 1] : '\0';
+
+            if (in_block_comment) {
+                if (c == '*' && next == '/') {
+                    in_block_comment = false;
+                    i++;
+                }
+                continue;
+            }
+
+            if (in_string) {
+                code_buf[k++] = c;
+                if (c == '\\' && next != '\0') {
+                    if (k < sizeof(code_buf) - 1) code_buf[k++] = next;
+                    i++;
+                } else if (c == '"') {
+                    in_string = false;
+                }
+                continue;
+            }
+
+            if (c == '"') {
+                in_string = true;
+                code_buf[k++] = c;
+                continue;
+            }
+
+            if (c == '/' && next == '/') {
+                break; /* Line comment ends this line */
+            }
+
+            if (c == '/' && next == '*') {
+                in_block_comment = true;
+                i++;
+                continue;
+            }
+
+            code_buf[k++] = c;
+        }
+        code_buf[k] = '\0';
+
+        /* Check for gets() in valid code */
+        if (strstr(code_buf, "gets(") != NULL) {
+            errors_found++;
+            (void)printf("\033[1;31m🛑 [nur.h Shield] Line %d: Inherently unsafe 'gets()' detected!\033[0m\n", line_num);
+            (void)printf("\033[1;33m💡 Fix: Replace 'gets()' with safe 'fgets()'.\033[0m\n");
+        }
+
+        /* Check for typo prinf in valid code */
+        if (strstr(code_buf, "prinf(") != NULL) {
+            errors_found++;
+            (void)printf("\033[1;31m🛑 [nur.h Typo Guard] Line %d: Typo detected ('prinf')!\033[0m\n", line_num);
+            (void)printf("\033[1;33m💡 Fix: Did you mean 'printf'? Auto-fix with: nur-cc --fix %s\033[0m\n", src_file);
+        }
+
+        /* Check for missing semicolon on return in valid code */
+        if (is_return_without_semicolon(code_buf)) {
+            errors_found++;
+            (void)printf("\033[1;31m🛑 [nur.h Shield] Line %d: Missing semicolon ';' after return statement!\033[0m\n", line_num);
+            (void)printf("\033[1;33m💡 Fix: Add ';' at end of line or run: nur-cc --fix %s\033[0m\n", src_file);
+        }
+
+        /* Check for NUR_IS_OK tracking (heuristic): distinguish OK check from ERR check */
+        if (strstr(code_buf, "NUR_IS_OK") != NULL || strstr(code_buf, "nur_is_ok") != NULL) {
+            last_was_ok_check = true;
+        } else if (strstr(code_buf, "NUR_IS_ERR") != NULL || strstr(code_buf, "nur_is_err") != NULL) {
+            last_was_ok_check = false;
+        } else if (strstr(code_buf, "NUR_VALUE(") != NULL || strstr(code_buf, "nur_value_") != NULL) {
+            if (!last_was_ok_check && strstr(code_buf, "NUR_UNWRAP") == NULL && strstr(code_buf, "if") == NULL) {
+                (void)printf("\033[1;33m⚠️  [nur.h Linter (Heuristic)] Line %d: Ensure NUR_IS_OK is verified before calling NUR_VALUE!\033[0m\n", line_num);
+            }
+        } else if (strchr(code_buf, '}') != NULL) {
+            last_was_ok_check = false;
+        }
+    }
+    (void)fclose(f);
+    return errors_found;
 }
 
 int main(int argc, char **argv) {
-    lang_t lang = LANG_EN;
     bool auto_fix = false;
     bool lint_only = false;
     const char *src_file = NULL;
     char out_bin[512] = {0};
-
-    const char *env_lang = getenv("LANG");
-    if (env_lang && strncmp(env_lang, "bn", 2) == 0) {
-        lang = LANG_BN;
-    }
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--fix") == 0) {
             auto_fix = true;
         } else if (strcmp(argv[i], "--lint") == 0) {
             lint_only = true;
-        } else if (strcmp(argv[i], "--lang=bn") == 0) {
-            lang = LANG_BN;
-        } else if (strcmp(argv[i], "--lang=en") == 0) {
-            lang = LANG_EN;
+        } else if (strncmp(argv[i], "--lang=", 7) == 0) {
+            /* Kept for CLI flag compatibility */
+            continue;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
-            show_help(lang);
+            show_help();
             return 0;
-        } else if ((strcmp(argv[i], "--new") == 0 || strcmp(argv[i], "--scaffold") == 0) && i + 1 < argc) {
-            scaffold_project(argv[++i], lang);
+        } else if (strcmp(argv[i], "--new") == 0 || strcmp(argv[i], "--scaffold") == 0) {
+            if (i + 1 >= argc || argv[i + 1][0] == '-') {
+                (void)fprintf(stderr, "\033[1;31mError: Option --new requires a directory operand!\033[0m\n");
+                return 1;
+            }
+            scaffold_project(argv[++i]);
             return 0;
-        } else if (strcmp(argv[i], "--wrap") == 0 && i + 1 < argc) {
-            generate_wrapper(argv[++i], lang);
+        } else if (strcmp(argv[i], "--wrap") == 0) {
+            if (i + 1 >= argc || argv[i + 1][0] == '-') {
+                (void)fprintf(stderr, "\033[1;31mError: Option --wrap requires a function signature operand!\033[0m\n");
+                return 1;
+            }
+            generate_wrapper(argv[++i]);
             return 0;
         } else if (strcmp(argv[i], "--examples") == 0) {
-            printf("\033[1;36mnur.h Production-Grade Examples Index:\033[0m\n");
-            printf("  basic/01_hello_result.c          - Result creation, checking, fallback\n");
-            printf("  basic/02_error_codes.c           - 36 error taxonomy categories\n");
-            printf("  basic/03_option_types.c          - NurOption nullable values\n");
-            printf("  basic/04_custom_types.c          - NUR_RESULT_TYPE with custom structs\n");
-            printf("  basic/05_error_context.c         - File, func, line metadata\n");
-            printf("  advanced/01_error_propagation.c  - Multi-tier call stack propagation\n");
-            printf("  advanced/02_file_io.c            - errno capture & resource cleanup\n");
-            printf("  advanced/03_allocation.c         - Zero-leak nur_malloc / nur_realloc\n");
-            printf("  advanced/04_parsing.c            - Zero-allocation CSV parsing\n");
-            printf("  real-world/01_config_parser.c    - Robust INI configuration parser\n");
-            printf("  real-world/02_string_processing.c- Safe string manipulation pipeline\n");
-            printf("  real-world/03_cli_arg_parser.c   - CLI option parser with port validation\n");
-            printf("  real-world/04_json_parser.c      - Streaming JSON tokenizer & parser\n");
-            printf("  real-world/05_socket_server.c    - Cross-platform TCP socket server\n");
-            printf("  real-world/06_http_client.c      - HTTP wire serializer & response parser\n");
-            printf("  real-world/07_thread_safe_logging.c - RFC 8259 JSON structured logging\n");
-            printf("  real-world/08_embedded_sensor.c  - Microcontroller sensor driver with CRC-8\n");
+            (void)printf("\033[1;36mnur.h Production-Grade Examples Index:\033[0m\n");
+            (void)printf("  basic/01_hello_result.c          - Result creation, checking, fallback\n");
+            (void)printf("  basic/02_error_codes.c           - 36 error taxonomy categories\n");
+            (void)printf("  basic/03_option_types.c          - NurOption nullable values\n");
+            (void)printf("  basic/04_custom_types.c          - NUR_RESULT_TYPE with custom structs\n");
+            (void)printf("  basic/05_error_context.c         - File, func, line metadata\n");
+            (void)printf("  advanced/01_error_propagation.c  - Multi-tier call stack propagation\n");
+            (void)printf("  advanced/02_file_io.c            - errno capture & resource cleanup\n");
+            (void)printf("  advanced/03_allocation.c         - Zero-leak nur_malloc / nur_realloc\n");
+            (void)printf("  advanced/04_parsing.c            - Zero-allocation CSV parsing\n");
+            (void)printf("  real-world/01_config_parser.c    - Robust INI configuration parser\n");
+            (void)printf("  real-world/02_string_processing.c- Safe string manipulation pipeline\n");
+            (void)printf("  real-world/03_cli_arg_parser.c   - CLI option parser with port validation\n");
+            (void)printf("  real-world/04_json_parser.c      - Streaming JSON tokenizer & parser\n");
+            (void)printf("  real-world/05_socket_server.c    - Cross-platform TCP socket server\n");
+            (void)printf("  real-world/06_http_client.c      - HTTP wire serializer & response parser\n");
+            (void)printf("  real-world/07_thread_safe_logging.c - RFC 8259 JSON structured logging\n");
+            (void)printf("  real-world/08_embedded_sensor.c  - Microcontroller sensor driver with CRC-8\n");
             return 0;
         } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
-            strncpy(out_bin, argv[++i], sizeof(out_bin) - 1);
+            (void)strncpy(out_bin, argv[++i], sizeof(out_bin) - 1);
         } else if (argv[i][0] != '-') {
             src_file = argv[i];
         }
     }
 
     if (!src_file) {
-        if (lang == LANG_BN) {
-            fprintf(stderr, "\033[1;31mত্রুটি: কোনো C সোর্স ফাইল উল্লেখ করা হয়নি!\033[0m\n");
-        } else {
-            fprintf(stderr, "\033[1;31mError: No C source file specified!\033[0m\n");
-        }
-        show_help(lang);
+        (void)fprintf(stderr, "\033[1;31mError: No C source file specified!\033[0m\n");
+        show_help();
         return 1;
     }
 
-    FILE *f = fopen(src_file, "r");
-    if (!f) {
-        if (lang == LANG_BN) {
-            fprintf(stderr, "\033[1;31mত্রুটি: '%s' ফাইলটি খুঁজে পাওয়া যায়নি!\033[0m\n", src_file);
-        } else {
-            fprintf(stderr, "\033[1;31mError: File '%s' not found!\033[0m\n", src_file);
-        }
+    int errors_found = scan_source(src_file);
+    if (errors_found < 0) {
         return 1;
     }
-
-    char line[1024];
-    int line_num = 0;
-    int errors_found = 0;
-    bool last_was_ok_check = false;
-
-    while (fgets(line, sizeof(line), f)) {
-        line_num++;
-
-        /* Check for gets() */
-        if (strstr(line, "gets(") != NULL) {
-            errors_found++;
-            if (lang == LANG_BN) {
-                printf("\033[1;31m🛑 [nur.h Shield] লাইন %d: অনিরাপদ 'gets()' ফাংশন পাওয়া গেছে!\033[0m\n", line_num);
-                printf("\033[1;33m💡 সমাধান: বাফার ওভারফ্লো এড়াতে 'fgets()' ব্যবহার করুন।\033[0m\n");
-            } else {
-                printf("\033[1;31m🛑 [nur.h Shield] Line %d: Inherently unsafe 'gets()' detected!\033[0m\n", line_num);
-                printf("\033[1;33m💡 Fix: Replace 'gets()' with safe 'fgets()'.\033[0m\n");
-            }
-        }
-
-        /* Check for typo prinf */
-        if (strstr(line, "prinf(") != NULL) {
-            errors_found++;
-            if (lang == LANG_BN) {
-                printf("\033[1;31m🛑 [nur.h Typo Guard] লাইন %d: টাইপো ধরা পড়েছে ('prinf')!\033[0m\n", line_num);
-                printf("\033[1;33m💡 সমাধান: সঠিক বানান হবে 'printf'। ঠিক করতে চালান: nur-cc --fix %s\033[0m\n", src_file);
-            } else {
-                printf("\033[1;31m🛑 [nur.h Typo Guard] Line %d: Typo detected ('prinf')!\033[0m\n", line_num);
-                printf("\033[1;33m💡 Fix: Did you mean 'printf'? Auto-fix with: nur-cc --fix %s\033[0m\n", src_file);
-            }
-        }
-
-        /* Check for missing semicolon on return */
-        if (is_return_without_semicolon(line)) {
-            errors_found++;
-            if (lang == LANG_BN) {
-                printf("\033[1;31m🛑 [nur.h Shield] লাইন %d: 'return'-এর শেষে সেমিকোলন (;) নেই!\033[0m\n", line_num);
-                printf("\033[1;33m💡 সমাধান: লাইনের শেষে ';' যোগ করুন অথবা চালান: nur-cc --fix %s\033[0m\n", src_file);
-            } else {
-                printf("\033[1;31m🛑 [nur.h Shield] Line %d: Missing semicolon ';' after return statement!\033[0m\n", line_num);
-                printf("\033[1;33m💡 Fix: Add ';' at end of line or run: nur-cc --fix %s\033[0m\n", src_file);
-            }
-        }
-
-        /* Strip line comments for heuristic checks */
-        char code_buf[1024];
-        strncpy(code_buf, line, sizeof(code_buf) - 1);
-        code_buf[sizeof(code_buf) - 1] = '\0';
-        char *comment = strstr(code_buf, "//");
-        if (comment) *comment = '\0';
-        char *bcomment = strstr(code_buf, "/*");
-        if (bcomment) {
-            char *ecomment = strstr(bcomment, "*/");
-            if (ecomment) {
-                memset(bcomment, ' ', (size_t)(ecomment - bcomment + 2));
-            } else {
-                *bcomment = '\0';
-            }
-        }
-
-        /* Check for NUR_IS_OK tracking (heuristic) */
-        if (strstr(code_buf, "NUR_IS_OK") != NULL || strstr(code_buf, "nur_is_ok") != NULL ||
-            strstr(code_buf, "NUR_IS_ERR") != NULL || strstr(code_buf, "nur_is_err") != NULL) {
-            last_was_ok_check = true;
-        } else if (strstr(code_buf, "NUR_VALUE(") != NULL || strstr(code_buf, "nur_value_") != NULL) {
-            if (!last_was_ok_check && strstr(code_buf, "NUR_UNWRAP") == NULL && strstr(code_buf, "if") == NULL) {
-                if (lang == LANG_BN) {
-                    printf("\033[1;33m⚠️  [nur.h AI Linter (হিউরিস্টিক)] লাইন %d: NUR_VALUE ডাকার আগে NUR_IS_OK চেক করা হয়েছে কি না নিশ্চিত করুন!\033[0m\n", line_num);
-                } else {
-                    printf("\033[1;33m⚠️  [nur.h AI Linter (Heuristic)] Line %d: Ensure NUR_IS_OK is verified before calling NUR_VALUE!\033[0m\n", line_num);
-                }
-            }
-        } else if (strchr(code_buf, '}') != NULL) {
-            last_was_ok_check = false;
-        }
-    }
-    fclose(f);
 
     if (auto_fix && errors_found > 0) {
-        if (lang == LANG_BN) {
-            printf("\033[1;36m🔧 [nur.h Auto-Fix] কোড স্বয়ংক্রিয়ভাবে সংশোধন করা হচ্ছে...\033[0m\n");
-        } else {
-            printf("\033[1;36m🔧 [nur.h Auto-Fix] Applying automated syntax and formatting corrections...\033[0m\n");
-        }
+        (void)printf("\033[1;36m🔧 [nur.h Auto-Fix] Applying automated syntax and formatting corrections...\033[0m\n");
 
-        f = fopen(src_file, "r");
+        FILE *f_in = fopen(src_file, "r");
         char tmp_path[560];
-        snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", src_file);
+        (void)snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", src_file);
         FILE *f_out = fopen(tmp_path, "w");
-        if (f && f_out) {
-            while (fgets(line, sizeof(line), f)) {
+        char line[1024];
+        if (f_in && f_out) {
+            while (fgets(line, sizeof(line), f_in)) {
                 char *typo = strstr(line, "prinf(");
                 if (typo) {
                     char mod[1024];
                     int prefix_len = (int)(typo - line);
-                    snprintf(mod, sizeof(mod), "%.*sprintf(%s", prefix_len, line, typo + 6);
-                    snprintf(line, sizeof(line), "%s", mod);
+                    (void)snprintf(mod, sizeof(mod), "%.*sprintf(%s", prefix_len, line, typo + 6);
+                    (void)snprintf(line, sizeof(line), "%s", mod);
                 }
                 if (is_return_without_semicolon(line)) {
                     trim_trailing_whitespace(line);
-                    strncat(line, ";\n", sizeof(line) - strlen(line) - 1);
+                    size_t cur_len = strlen(line);
+                    if (cur_len + 3 < sizeof(line)) {
+                        line[cur_len] = ';';
+                        line[cur_len + 1] = '\n';
+                        line[cur_len + 2] = '\0';
+                    }
                 }
-                fputs(line, f_out);
+                (void)fputs(line, f_out);
             }
-            fclose(f);
-            fclose(f_out);
-            remove(src_file);
-            rename(tmp_path, src_file);
+            (void)fclose(f_in);
+            (void)fclose(f_out);
+            (void)remove(src_file);
+            (void)rename(tmp_path, src_file);
 
-            if (lang == LANG_BN) {
-                printf("\033[1;32m✓ [nur.h Auto-Fix] সংশোধন সম্পন্ন হয়েছে!\033[0m\n");
-            } else {
-                printf("\033[1;32m✓ [nur.h Auto-Fix] All automated fixes applied successfully!\033[0m\n");
-            }
-            errors_found = 0;
+            (void)printf("\033[1;32m✓ [nur.h Auto-Fix] All automated fixes applied successfully!\033[0m\n");
+
+            /* Re-scan after auto-fix to accurately retain any unrepairable errors (e.g. gets()) */
+            errors_found = scan_source(src_file);
+        } else {
+            if (f_in) (void)fclose(f_in);
+            if (f_out) (void)fclose(f_out);
         }
     }
 
     if (lint_only) {
         if (errors_found == 0) {
-            if (lang == LANG_BN) {
-                printf("\033[1;32m✓ [nur.h Linter] কোড সম্পূর্ণ নিরাপদ ও ত্রুটিমুক্ত পাওয়া গেছে।\033[0m\n");
-            } else {
-                printf("\033[1;32m✓ [nur.h Linter] Code verified 100%% compliant with nur.h safety contract.\033[0m\n");
-            }
+            (void)printf("\033[1;32m✓ [nur.h Linter] Code verified 100%% compliant with nur.h safety contract.\033[0m\n");
             return 0;
         }
         return 1;
@@ -410,40 +409,37 @@ int main(int argc, char **argv) {
 
     if (out_bin[0] == '\0') {
         char base[480];
-        strncpy(base, src_file, sizeof(base) - 1);
+        (void)strncpy(base, src_file, sizeof(base) - 1);
         base[sizeof(base) - 1] = '\0';
         char *dot = strrchr(base, '.');
         if (dot) *dot = '\0';
-        snprintf(out_bin, sizeof(out_bin), "%s%s", base, EXE_EXT);
+        (void)snprintf(out_bin, sizeof(out_bin), "%s%s", base, EXE_EXT);
     }
 
-    if (lang == LANG_BN) {
-        printf("\033[1;34m🔨 কম্পাইল করা হচ্ছে: %s -> %s ...\033[0m\n", src_file, out_bin);
-    } else {
-        printf("\033[1;34m🔨 Compiling: %s -> %s ...\033[0m\n", src_file, out_bin);
+    (void)printf("\033[1;34m🔨 Compiling: %s -> %s ...\033[0m\n", src_file, out_bin);
+
+    const char *cc = getenv("CC");
+    if (!cc || *cc == '\0') {
+        cc = "gcc";
     }
 
     char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "gcc -Wall -Wextra -Isrc -I../src \"%s\" -o \"%s\"", src_file, out_bin);
-    int ret = system(cmd);
+    (void)snprintf(cmd, sizeof(cmd), "%s -Wall -Wextra -Isrc -I../src \"%s\" -o \"%s\"", cc, src_file, out_bin);
+    int ret = system(cmd); // NOLINT(bugprone-command-processor,cert-env33-c)
     if (ret != 0) {
         return ret;
     }
 
-    if (lang == LANG_BN) {
-        printf("\033[1;32m🚀 প্রোগ্রাম চালানো হচ্ছে...\033[0m\n");
-    } else {
-        printf("\033[1;32m🚀 Executing program...\033[0m\n");
-    }
+    (void)printf("\033[1;32m🚀 Executing program...\033[0m\n");
 
     char run_cmd[550];
-#if defined(_WIN32)
+#ifdef _WIN32
     for (char *c = out_bin; *c; c++) {
         if (*c == '/') *c = '\\';
     }
-    snprintf(run_cmd, sizeof(run_cmd), "%s", out_bin);
+    (void)snprintf(run_cmd, sizeof(run_cmd), "\"%s\"", out_bin);
 #else
-    snprintf(run_cmd, sizeof(run_cmd), "./\"%s\"", out_bin);
+    (void)snprintf(run_cmd, sizeof(run_cmd), "./\"%s\"", out_bin);
 #endif
-    return system(run_cmd);
+    return system(run_cmd); // NOLINT(bugprone-command-processor,cert-env33-c)
 }

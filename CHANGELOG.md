@@ -20,9 +20,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Expanded `README.md`, `AGENTS.md` (Section 7), and `AI_POLICY.md` (`NUR-AI-008`) with architectural clarity on when and how to apply `nur.h` with zero runtime overhead.
 
 ### Fixed
+- **C++ Smoke Test Assertion Hardening under NDEBUG**: Replaced standard `assert(...)` in `test/test_cpp_smoke.cpp` with an explicit `EXPECT(...)` check that outputs failure diagnostics to `stderr` and returns a non-zero exit code (`1`), ensuring assertions are not silently lost when compiling Release or `-DNDEBUG` builds. Decoupled test from `<iostream>` and `<string>` to eliminate clangd standard library header parsing incompatibilities.
+- **32-Bit Target Integer Type Identity (`unsigned long long` -> `NurResult_u64`)**: Mapped `unsigned long long` to `NurResult_u64` in C++ `nur_cpp_result_traits` and C11 `_Generic` (`nur_internal_gen_ullong`), eliminating 64-to-32-bit integer truncation via `size_t` on 32-bit platforms.
+- **Typed Result Mapping Compatibility (`NUR_MAP_TO` & `NUR_MAP`)**: Fixed struct type mismatch in the `NUR_MAP_TO` ternary operator by constructing `nur_err_##suffix((result).u.error)` on error instead of returning `(result)`, guaranteeing both ternary branches evaluate to the exact same Result struct type. Documented and restricted `NUR_MAP` to same-type transformations.
+- **Developer CLI Scaffolding & Linter Hardening (`tools/nur-cc`, `tools/nur-cc.c`)**:
+  - Protected against accidental overwriting of existing projects if `main.c` or `Makefile` exists.
+  - Verified that `src/nur.h` was successfully found and copied before reporting project creation success.
+  - Removed duplicate `NUR_RESULT_TYPE(int32_t, i32);` declaration from `--wrap` migration recipes.
+  - Enforced mandatory operands for `--new` and `--wrap`.
+  - Upgraded C comment scanning to preserve `//` inside string literals and track multiline `/* ... */` block comments across lines.
+  - Disallowed treating `NUR_IS_ERR` as a safe-value predicate before `NUR_VALUE`.
+  - Re-scanned files after `--fix` to preserve unrepairable violations (e.g. `gets()`) and return non-zero exit codes under `--lint`.
+- **Union Member Type-Safety in `NUR_ASSERT_ERR`**: Fixed undefined behavior caused by reading `r.u.error` when `NUR_IS_OK(r)` evaluated to true (where the active union payload is `r.u.value`). Dispatched to distinct panic branches for Ok results vs code mismatches.
+- **Semantic Error Classification in `NUR_UNWRAP_OPTION`**: Attached explicit `NUR_ERROR(NUR_E_INVALID_STATE, "Option is None")` rather than dummy `NUR_E_NONE` when unwrap aborts on None.
+- **Native OS Directory Scaffolding**: Replaced shell invocation (`system("mkdir ...")`) in `tools/nur-cc.c` with native platform APIs (`_mkdir` / `mkdir`), eliminating command processor overhead and CWE-78 risk.
+- **Structured JSON Error Buffer Consistency**: Harmonized `nur_error_log_json` to utilize `NUR_PRINT_BUFFER_SIZE` (1024 bytes) for consistent zero-heap error streaming.
+- **Repository-Wide Version Synchronization**: Synchronized version 1.3.2 across `src/nur.h`, `VERSION`, `CMakeLists.txt`, `meson.build`, `nur.pc`, `tools/nur-cc.c`, and `tools/nur-cc`.
 - **Reserved Identifier Compliance**: Eliminated all reserved global identifiers (`_nur_gen_*`, `_NUR_GET_MACRO_3`, `_NUR_OK_*`, `_nur_custom_panic_handler`, `_nur_cpp_result_traits`) in compliance with ISO C 7.1.3 and C++ standards.
 - **Clangd / Clang-Tidy Diagnostics & Branch Cloning**: Stacked consecutive switch branches in Win32 and errno error code mappers to eliminate branch-clone warnings. Configured `.clangd` and `.clang-tidy` to eliminate false-positive swappable parameter and unused-include warnings.
 - **Guarded `__has_c_attribute` Macro**: Safely decoupled and guarded C++17 attribute checking to prevent undefined function-like macro errors in C++ compilation.
+- **Single-Evaluation Context Chaining (`NUR_ERROR_CONTEXT_AT`)**: Replaced macro with inline helper function `nur_error_context_at`, preventing argument double-evaluation and eliminating `-Wsign-compare` compiler warnings.
+- **Freestanding Integer Bounds Fallbacks (`INT32_MAX`, `INT32_MIN`)**: Added portable constant definitions when compiling in freestanding environments or with `NUR_NO_STDINT`.
+- **Unused Panic Handler Variable Protection**: Annotated `nur_internal_custom_panic_handler` with `NUR_UNUSED` to suppress compiler `-Wunused-variable` diagnostics in isolated translation units.
+- **Robust File Truncation Detection in `nur_file_read_text`**: Added explicit `ferror(f)` validation if `fgetc` encounters an unexpected error during the single-byte post-read verification, ensuring I/O errors are faithfully classified as `NUR_E_IO`.
+- **Compiler Configuration & Buffer Safety in `tools/nur-cc.c`**: Added `CC` environment variable detection (falling back to `gcc`) and bounds-checked string termination in automated semicolon repair.
 - **Test Include Relative Path**: Normalized header include to `../src/nur.h` in `test/test_super_header_and_dropin.c`.
 
 ## [1.3.1] - 2026-10-13

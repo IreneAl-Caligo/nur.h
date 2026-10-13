@@ -2,8 +2,9 @@
 
 A **single-header, zero-allocation, pedantic warning-free** C library that brings Rust-style `Result<T,E>` and `Option<T>` patterns to ISO C with compiler-assisted safety via `[[nodiscard]]`.
 
-**Author**: Irene Al-Caligo | **License**: MIT | **Compatibility**: ISO C89, C99, C11, C17, C23 & C++11+
+**Author**: Irene Al-Caligo | **Version**: v1.3.2 | **License**: MIT | **Compatibility**: ISO C89, C99, C11, C17, C23 & C++11+
 
+[![Latest Release](https://img.shields.io/badge/Release-v1.3.2-blue.svg)](CHANGELOG.md)
 [![C Standard](https://img.shields.io/badge/Standards-C89%20%7C%20C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue.svg)](src/nur.h)
 [![Pedantic Warnings](https://img.shields.io/badge/Warnings-Zero%20Pedantic-brightgreen.svg)](src/nur.h)
 [![Zero Heap Allocation](https://img.shields.io/badge/Memory-0%20Bytes%20Heap-brightgreen.svg)](docs/BENCHMARKS.md)
@@ -27,12 +28,15 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
 - [Common Patterns Cheat Sheet](#-common-patterns-cheat-sheet)
 - [Bad Patterns vs. Good Patterns](#-bad-patterns-vs-good-patterns)
 - [Opt-In Safety & High-Performance Domains](#-opt-in-safety--high-performance-domains)
+- [Built-in Safe Math & File I/O](#-built-in-safe-math--file-io)
 - [Real-World Production Examples](#-real-world-production-examples)
 - [Ergonomic Developer APIs](#-ergonomic-developer-apis)
 - [Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)](#-leak-free-resource-cleanup-nur_try_goto)
 - [C-Purist Safety Mode & Pure Functions (`NUR_PURIST`)](#-c-purist-safety-mode--pure-functions-nur_purist)
+- [Modern C++ Integration (`namespace nur`)](#-modern-c-integration-namespace-nur)
 - [Performance & Zero-Allocation Benchmarks](#-performance--zero-allocation-benchmarks)
 - [AI / LLM Autonomous Code Generation](#-ai--llm-autonomous-code-generation)
+- [CLI Toolchain (`tools/nur-cc`)](#-cli-toolchain-toolsnur-cc)
 - [Build & Package Ecosystem](#-build--package-ecosystem)
 - [Verification & Quality Gates](#-verification--quality-gates)
 - [Documentation Index](#-documentation-index)
@@ -298,6 +302,54 @@ Write standard scalar getters/setters directly (`return obj->id;`). For optional
 
 ---
 
+## 🧮 Built-in Safe Math & File I/O
+
+`nur.h` provides zero-allocation, overflow-checked arithmetic and I/O helpers out of the box (opt-out with `#define NUR_NO_EXTENSIONS` or `#define NUR_LITE`):
+
+### 1. Overflow-Checked 32-Bit Arithmetic
+Protects against integer wrap-around vulnerabilities (CWE-190) and division-by-zero (CWE-369):
+```c
+NurResult_i32 sum = nur_add_i32(2000000000, 1000000000);
+// Returns NUR_E_OVERFLOW if result exceeds INT32_MAX
+
+NurResult_i32 diff = nur_sub_i32(-2000000000, 1000000000);
+// Returns NUR_E_OVERFLOW on underflow
+
+NurResult_i32 prod = nur_mul_i32(100000, 100000);
+// Returns NUR_E_OVERFLOW if product exceeds INT32_MAX
+
+NurResult_i32 quot = nur_div_i32(100, 0);
+// Returns NUR_E_INVALID_ARGUMENT on division by zero
+// Returns NUR_E_OVERFLOW on INT32_MIN / -1
+```
+
+### 2. Zero-Heap Safe Text File Reading
+Reads an entire file into a caller-supplied buffer with zero dynamic allocation, automatic descriptor closure, null termination, and robust silent truncation detection:
+```c
+char buffer[1024];
+NurResult_cstr res = nur_file_read_text("config.json", buffer, sizeof(buffer));
+if (NUR_IS_OK(res)) {
+    printf("Content: %s\n", NUR_VALUE(res));
+} else {
+    // Automatically maps errno: ENOENT -> NUR_E_NOT_FOUND, EACCES -> NUR_E_PERMISSION,
+    // or NUR_E_TRUNCATED if file exceeds buffer capacity.
+    nur_error_eprint(&NUR_ERROR_OF(res));
+}
+```
+
+### 3. Safe Domain Helpers
+```c
+// Domain-protected square root (prevents silent NaN generation)
+NurResult_f64 root = nur_sqrt(25.0);  // OK: 5.0
+NurResult_f64 bad  = nur_sqrt(-4.0);  // ERR: NUR_E_INVALID_ARGUMENT
+
+// Null-safe string length (prevents null dereference SIGSEGV)
+NurResult_usize len = nur_strlen("hello"); // OK: 5
+NurResult_usize nil = nur_strlen(NULL);    // ERR: NUR_E_NULL_POINTER
+```
+
+---
+
 ## 🚀 Real-World Production Examples
 
 All examples compile cleanly under `-Wall -Wextra -Wpedantic` and demonstrate both success and failure handling:
@@ -401,6 +453,43 @@ if (nur_result_is_err(&res)) { ... }
 
 ---
 
+## ⚡ Modern C++ Integration (`namespace nur`)
+
+When compiled with a C++ compiler (`g++`, `clang++`, MSVC in C++ mode), `nur.h` automatically provides native modern C++11+ type aliases and overloaded wrapper functions under `namespace nur`:
+
+```cpp
+#include "nur.h"
+#include <iostream>
+
+nur::Result_i32 divide(int a, int b) {
+    if (b == 0) {
+        return nur::err(NUR_ERROR(NUR_E_INVALID_ARGUMENT, "division by zero"));
+    }
+    // Single-token overloaded ok() automatically deduces Result_i32:
+    return nur::ok(a / b);
+}
+
+int main() {
+    auto res = divide(10, 2);
+    if (nur::is_ok(res)) {
+        std::cout << "10 / 2 = " << nur::value(res) << "\n";
+    }
+
+    // Modern fallback unwrap:
+    int safe_val = nur::unwrap_or(divide(10, 0), -1); // -1
+
+    // Built-in safe helpers:
+    auto r_sqrt = nur::sqrt(49.0);   // 7.0
+    auto r_len  = nur::strlen("nur"); // 3
+    return 0;
+}
+```
+
+- **Zero runtime overhead**: Template traits and inline functions optimize down to identical machine instructions as native C.
+- **Header-only compatibility**: Can be freely included in mixed C and C++ translation units.
+
+---
+
 ## 📊 Performance & Zero-Allocation Benchmarks
 
 Measured with GCC `-O2` on AMD/Intel x86_64:
@@ -482,19 +571,25 @@ make test-asan
 
 ## 🛠️ CLI Toolchain (`tools/nur-cc`)
 
-The included zero-dependency developer CLI assists in scaffolding and automated linting:
+The included zero-dependency developer CLI assists in project scaffolding, static safety verification, and automated repair. It is available both as a compiled native ANSI C program (`tools/nur-cc.c`) and a portable POSIX Bash script (`tools/nur-cc`):
 
 ```bash
-# Scaffold a new ready-to-build nur.h project
+# Option A: Compile the native C binary (recommended for all platforms)
+gcc -O2 tools/nur-cc.c -o tools/nur-cc
+
+# Option B: Run the portable Bash script directly (Linux/macOS/Git Bash)
+chmod +x tools/nur-cc
+
+# Scaffold a new ready-to-build nur.h project:
 ./tools/nur-cc --new my_service
 
-# Run static safety and AI contract linting
+# Run static safety and contract audit:
 ./tools/nur-cc --lint src/main.c
 
-# Auto-fix common typos and missing return semicolons
+# Automatically fix typos ('prinf') and missing return semicolons:
 ./tools/nur-cc --fix src/main.c
 
-# Generate NurResult wrapper recipe for legacy signatures
+# Generate NurResult wrapper recipe for legacy signatures:
 ./tools/nur-cc --wrap "int parse_socket(const char *addr, int *out)"
 ```
 
