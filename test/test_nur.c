@@ -192,15 +192,28 @@ static int test_macro_hygiene(void) {
     if (counter != 1) return 0;
     if (NUR_UNWRAP(result) != 1) return 0;
 
-    /* NUR_UNWRAP must evaluate its expression exactly once */
+#if defined(NUR_GNU_EXTENSIONS) || defined(__cplusplus)
+    /* NUR_UNWRAP must evaluate its expression exactly once on GNU/C++ */
     counter = 0;
     int val = NUR_UNWRAP(make_counter_result());
     if (counter != 1 || val != 1) return 0;
 
-    /* NUR_UNWRAP_OR must evaluate its expression exactly once */
+    /* NUR_UNWRAP_OR must evaluate its expression exactly once on GNU/C++ */
     counter = 0;
     int val_or = NUR_UNWRAP_OR(make_counter_result(), -1);
     if (counter != 1 || val_or != 1) return 0;
+#else
+    /* Non-GNU / MSVC portable expression pattern (AGENTS.md Pattern C) */
+    counter = 0;
+    NurResult_i32 r_u = make_counter_result();
+    int val = NUR_UNWRAP(r_u);
+    if (counter != 1 || val != 1) return 0;
+
+    counter = 0;
+    NurResult_i32 r_or = make_counter_result();
+    int val_or = NUR_UNWRAP_OR(r_or, -1);
+    if (counter != 1 || val_or != 1) return 0;
+#endif
     
     return 1;
 }
