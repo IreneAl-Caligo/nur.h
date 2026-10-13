@@ -54,7 +54,7 @@ static int test_batteries_included_headers(void) {
     /* stdlib.h */
     int val_abs = abs(-100);
     if (val_abs != 100) return 0;
-    int parsed_int = atoi("54321");
+    int parsed_int = (int)strtol("54321", NULL, 10);
     if (parsed_int != 54321) return 0;
 
     /* string.h */
@@ -80,7 +80,7 @@ static int test_batteries_included_headers(void) {
     if (i32_val != 12345 || u64_val != 99999ULL) return 0;
 
     /* errno.h */
-    if (errno != 0 && errno == -9999) return 0; /* Just testing errno symbol exists */
+    if (errno == -9999) return 0; /* Just testing errno symbol exists */
 
     return 1;
 }
@@ -100,8 +100,8 @@ static int test_all_constructors_and_shortcuts(void) {
     NurResult_usize h_usize = NUR_H((size_t)2048);
     if (!NUR_IS_OK(h_usize) || NUR_VALUE(h_usize) != 2048) return 0;
 
-    NurResult_f32 h_f32 = NUR_H(1.25f);
-    if (!NUR_IS_OK(h_f32) || NUR_VALUE(h_f32) < 1.24f || NUR_VALUE(h_f32) > 1.26f) return 0;
+    NurResult_f32 h_f32 = NUR_H(1.25F);
+    if (!NUR_IS_OK(h_f32) || NUR_VALUE(h_f32) < 1.24F || NUR_VALUE(h_f32) > 1.26F) return 0;
 
     NurResult_f64 h_f64 = NUR_H(3.14159);
     if (!NUR_IS_OK(h_f64) || NUR_VALUE(h_f64) < 3.1415 || NUR_VALUE(h_f64) > 3.1416) return 0;
@@ -109,7 +109,8 @@ static int test_all_constructors_and_shortcuts(void) {
     NurResult_cstr h_cstr = NUR_H("Universal string");
     if (!NUR_IS_OK(h_cstr) || strcmp(NUR_VALUE(h_cstr), "Universal string") != 0) return 0;
 
-    void *test_ptr = (void*)(uintptr_t)0x55aa55aa;
+    int dummy_val = 42;
+    void *test_ptr = &dummy_val;
     NurResult_ptr h_ptr = NUR_H(test_ptr);
     if (!NUR_IS_OK(h_ptr) || NUR_VALUE(h_ptr) != test_ptr) return 0;
 
@@ -201,11 +202,16 @@ static int test_intentional_file_errors(void) {
     const char *tmp_name = "test_auto_io_valid.txt";
     FILE *f = fopen(tmp_name, "w");
     if (!f) return 0;
-    fputs("Sample file content for testing", f);
-    fclose(f);
+    if (fputs("Sample file content for testing", f) == EOF) {
+        (void)fclose(f);
+        return 0;
+    }
+    if (fclose(f) != 0) return 0;
 
     NurResult_cstr read_ok = nur_file_read_text(tmp_name, buf, sizeof(buf));
-    remove(tmp_name);
+    if (remove(tmp_name) != 0) {
+        /* Cleanup best-effort */
+    }
 
     if (!NUR_IS_OK(read_ok)) return 0;
     if (strcmp(NUR_VALUE(read_ok), "Sample file content for testing") != 0) return 0;
@@ -213,12 +219,17 @@ static int test_intentional_file_errors(void) {
     /* 6. Truncation guard test: buffer smaller than file content */
     f = fopen(tmp_name, "w");
     if (!f) return 0;
-    fputs("This is a long text that will not fit in a small buffer", f);
-    fclose(f);
+    if (fputs("This is a long text that will not fit in a small buffer", f) == EOF) {
+        (void)fclose(f);
+        return 0;
+    }
+    if (fclose(f) != 0) return 0;
 
     char small_buf[16];
     NurResult_cstr trunc_res = nur_file_read_text(tmp_name, small_buf, sizeof(small_buf));
-    remove(tmp_name);
+    if (remove(tmp_name) != 0) {
+        /* Cleanup best-effort */
+    }
 
     if (NUR_IS_OK(trunc_res)) return 0; /* MUST NOT SUCCEED SILENTLY! */
     if (NUR_ERROR_OF(trunc_res).code != NUR_E_TRUNCATED) return 0;
@@ -247,8 +258,8 @@ static int test_error_chaining_and_json(void) {
 
     /* 3. JSON Serialization */
     char json_buffer[512];
-    int written = (int)nur_error_json(&wrapped_err, json_buffer, sizeof(json_buffer));
-    if (written <= 0) return 0;
+    size_t written = nur_error_json(&wrapped_err, json_buffer, sizeof(json_buffer));
+    if (written == 0) return 0;
 
     if (strstr(json_buffer, "\"code\":") == NULL) return 0;
     if (strstr(json_buffer, "\"name\":\"NUR_E_CONNECTION\"") == NULL) return 0;
@@ -260,8 +271,8 @@ static int test_error_chaining_and_json(void) {
 
     /* 3. JSON Serialization */
     char json_buffer[512];
-    int written = nur_error_json(&wrapped_err, json_buffer, sizeof(json_buffer));
-    if (written <= 0) return 0;
+    size_t written = nur_error_json(&wrapped_err, json_buffer, sizeof(json_buffer));
+    if (written == 0) return 0;
 
     /* Verify JSON fields exist */
     if (strstr(json_buffer, "\"code\":") == NULL) return 0;
@@ -344,10 +355,9 @@ int main(void) {
         printf("ALL A-TO-Z TESTS AND ERROR SCENARIOS PASSED CLEANLY! [OK]\n");
         printf("============================================================\n");
         return 0;
-    } else {
-        printf("SOME TESTS FAILED! [FAIL]\n");
-        printf("============================================================\n");
-        return 1;
     }
+    printf("SOME TESTS FAILED! [FAIL]\n");
+    printf("============================================================\n");
+    return 1;
 }
 #endif
