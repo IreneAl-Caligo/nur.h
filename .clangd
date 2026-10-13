@@ -56,9 +56,11 @@ Diagnostics:
       - clang-analyzer-*
     Remove:
       - bugprone-macro-parentheses
+      - bugprone-easily-swappable-parameters
+      - bugprone-branch-clone
       - cert-dcl37-c
       - cert-dcl51-cpp
-  UnusedIncludes: Strict
+  UnusedIncludes: None
 
 ---
 

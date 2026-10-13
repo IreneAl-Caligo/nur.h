@@ -9,7 +9,7 @@
  *    - Hardware ISRs (bare-metal register simulation with 0 heap)
  */
 
-#include "src/nur.h"
+#include "../src/nur.h"
 #include <assert.h>
 
 /* --- Domain 1: Pure Numeric Arithmetic Pattern --- */

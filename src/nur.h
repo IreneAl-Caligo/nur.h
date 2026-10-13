@@ -72,12 +72,12 @@ extern "C" {
     #define NUR_GNU_EXTENSIONS 1
 #endif
 
-#if defined(_MSC_VER)
+#ifdef _MSC_VER
     #define NUR_MSVC 1
 #endif
 
 /* Type deduction macros */
-#if defined(__cplusplus)
+#ifdef __cplusplus
     #define NUR_TYPEOF(expr) decltype(expr)
     #define NUR_AUTO auto
 #elif defined(NUR_C23)
@@ -176,10 +176,26 @@ extern "C" {
  *===========================================================================*/
 
 /* [[nodiscard]] - warns when result is ignored */
-#if (defined(NUR_C23) && (!defined(__has_c_attribute) || __has_c_attribute(nodiscard))) || (defined(__cplusplus) && __cplusplus >= 201703L)
+#if defined(__cplusplus) && __cplusplus >= 201703L
     #define NUR_NODISCARD [[nodiscard]]
     #define NUR_NODISCARD_MSG(msg) [[nodiscard(msg)]]
     #define NUR_NODISCARD_TYPE [[nodiscard]]
+#elif defined(NUR_C23)
+    #if defined(__has_c_attribute)
+        #if __has_c_attribute(nodiscard)
+            #define NUR_NODISCARD [[nodiscard]]
+            #define NUR_NODISCARD_MSG(msg) [[nodiscard(msg)]]
+            #define NUR_NODISCARD_TYPE [[nodiscard]]
+        #else
+            #define NUR_NODISCARD
+            #define NUR_NODISCARD_MSG(msg)
+            #define NUR_NODISCARD_TYPE
+        #endif
+    #else
+        #define NUR_NODISCARD [[nodiscard]]
+        #define NUR_NODISCARD_MSG(msg) [[nodiscard]]
+        #define NUR_NODISCARD_TYPE [[nodiscard]]
+    #endif
 #elif defined(__clang__)
     #define NUR_NODISCARD __attribute__((warn_unused_result))
     #define NUR_NODISCARD_MSG(msg) __attribute__((warn_unused_result))
@@ -199,14 +215,14 @@ extern "C" {
 #endif
 
 /* Function declaration helper enforcing nodiscard across all compilers */
-#if defined(NUR_C89)
+#ifdef NUR_C89
     /* ISO C89 does not support variadic macros in pedantic mode */
 #else
     #define NUR_FN(ReturnType, FuncName, ...) NUR_NODISCARD ReturnType FuncName(__VA_ARGS__)
 #endif
 
 /* Unused attribute to prevent -Wunused-function in headers */
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
     #define NUR_UNUSED __attribute__((unused))
 #else
     #define NUR_UNUSED
@@ -216,7 +232,7 @@ extern "C" {
  * NUR_INLINE does NOT use always_inline -- panic helpers are noinline+cold.
  * Removing always_inline avoids inlining the 1 KiB panic buffer at every
  * NUR_UNWRAP call site (~11x code size reduction). */
-#if defined(NUR_C89)
+#ifdef NUR_C89
     #if defined(__GNUC__) || defined(__clang__)
         #define NUR_INLINE  static __inline__
         #define NUR_NOINLINE __attribute__((noinline))
@@ -250,7 +266,7 @@ extern "C" {
 #endif
 
 /* cold - optimizer hint: path is rarely taken */
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
     #define NUR_COLD __attribute__((cold))
 #else
     #define NUR_COLD
@@ -276,7 +292,7 @@ extern "C" {
 #endif
 
 /* Branch prediction hints */
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
     #define NUR_LIKELY(x)   __builtin_expect(!!(x), 1)
     #define NUR_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
@@ -285,7 +301,7 @@ extern "C" {
 #endif
 
 /* Printf-style format checking */
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
     #define NUR_PRINTF_LIKE(fmt_idx, va_idx) __attribute__((format(printf, fmt_idx, va_idx)))
 #else
     #define NUR_PRINTF_LIKE(fmt_idx, va_idx)
@@ -435,6 +451,7 @@ __declspec(dllimport) unsigned short __stdcall RtlCaptureStackBackTrace(unsigned
 #include <execinfo.h>
 #endif
 
+/* NOLINTNEXTLINE(bugprone-easily-swappable-parameters) */
 NUR_INLINE nur_error_t nur_internal_make_error(
     nur_error_code_t code, int sys,
     const char *message, const char *context,
@@ -538,6 +555,7 @@ NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
 /**
  * Explicitly wrap an error with a high-level context and specific root cause.
  */
+/* NOLINTNEXTLINE(bugprone-easily-swappable-parameters) */
 NUR_INLINE nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, const char *cause_str) {
     int i_;
     e.context = ctx;
@@ -972,59 +990,59 @@ NUR_OPTION_TYPE(void *, ptr);
 } /* temporarily exit extern "C" for C++ templates */
 /* C++11+ universal constructor engine using native template traits */
 template <typename T>
-struct _nur_cpp_result_traits;
+struct nur_cpp_result_traits;
 
-template <> struct _nur_cpp_result_traits<bool> { typedef NurResult_bool type; static type make(bool v) { return nur_ok_bool(v); } };
-template <> struct _nur_cpp_result_traits<signed char> { typedef NurResult_i8 type; static type make(int8_t v) { return nur_ok_i8(v); } };
-template <> struct _nur_cpp_result_traits<unsigned char> { typedef NurResult_u8 type; static type make(uint8_t v) { return nur_ok_u8(v); } };
-template <> struct _nur_cpp_result_traits<short> { typedef NurResult_i16 type; static type make(int16_t v) { return nur_ok_i16(v); } };
-template <> struct _nur_cpp_result_traits<unsigned short> { typedef NurResult_u16 type; static type make(uint16_t v) { return nur_ok_u16(v); } };
-template <> struct _nur_cpp_result_traits<int> { typedef NurResult_i32 type; static type make(int32_t v) { return nur_ok_i32(v); } };
-template <> struct _nur_cpp_result_traits<unsigned int> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
-template <> struct _nur_cpp_result_traits<long> { typedef NurResult_i64 type; static type make(int64_t v) { return nur_ok_i64(v); } };
-template <> struct _nur_cpp_result_traits<unsigned long> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
-template <> struct _nur_cpp_result_traits<long long> { typedef NurResult_i64 type; static type make(int64_t v) { return nur_ok_i64(v); } };
-template <> struct _nur_cpp_result_traits<unsigned long long> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
-template <> struct _nur_cpp_result_traits<float> { typedef NurResult_f32 type; static type make(float v) { return nur_ok_f32(v); } };
-template <> struct _nur_cpp_result_traits<double> { typedef NurResult_f64 type; static type make(double v) { return nur_ok_f64(v); } };
-template <> struct _nur_cpp_result_traits<char*> { typedef NurResult_cstr type; static type make(char *v) { return nur_ok_cstr(v); } };
-template <> struct _nur_cpp_result_traits<const char*> { typedef NurResult_cstr_const type; static type make(const char *v) { return nur_ok_cstr_const(v); } };
-template <> struct _nur_cpp_result_traits<void*> { typedef NurResult_ptr type; static type make(void *v) { return nur_ok_ptr(v); } };
-template <> struct _nur_cpp_result_traits<const void*> { typedef NurResult_ptr type; static type make(const void *v) { return nur_ok_ptr((void*)v); } };
+template <> struct nur_cpp_result_traits<bool> { typedef NurResult_bool type; static type make(bool v) { return nur_ok_bool(v); } };
+template <> struct nur_cpp_result_traits<signed char> { typedef NurResult_i8 type; static type make(int8_t v) { return nur_ok_i8(v); } };
+template <> struct nur_cpp_result_traits<unsigned char> { typedef NurResult_u8 type; static type make(uint8_t v) { return nur_ok_u8(v); } };
+template <> struct nur_cpp_result_traits<short> { typedef NurResult_i16 type; static type make(int16_t v) { return nur_ok_i16(v); } };
+template <> struct nur_cpp_result_traits<unsigned short> { typedef NurResult_u16 type; static type make(uint16_t v) { return nur_ok_u16(v); } };
+template <> struct nur_cpp_result_traits<int> { typedef NurResult_i32 type; static type make(int32_t v) { return nur_ok_i32(v); } };
+template <> struct nur_cpp_result_traits<unsigned int> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
+template <> struct nur_cpp_result_traits<long> { typedef NurResult_i64 type; static type make(int64_t v) { return nur_ok_i64(v); } };
+template <> struct nur_cpp_result_traits<unsigned long> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
+template <> struct nur_cpp_result_traits<long long> { typedef NurResult_i64 type; static type make(int64_t v) { return nur_ok_i64(v); } };
+template <> struct nur_cpp_result_traits<unsigned long long> { typedef NurResult_usize type; static type make(size_t v) { return nur_ok_usize(v); } };
+template <> struct nur_cpp_result_traits<float> { typedef NurResult_f32 type; static type make(float v) { return nur_ok_f32(v); } };
+template <> struct nur_cpp_result_traits<double> { typedef NurResult_f64 type; static type make(double v) { return nur_ok_f64(v); } };
+template <> struct nur_cpp_result_traits<char*> { typedef NurResult_cstr type; static type make(char *v) { return nur_ok_cstr(v); } };
+template <> struct nur_cpp_result_traits<const char*> { typedef NurResult_cstr_const type; static type make(const char *v) { return nur_ok_cstr_const(v); } };
+template <> struct nur_cpp_result_traits<void*> { typedef NurResult_ptr type; static type make(void *v) { return nur_ok_ptr(v); } };
+template <> struct nur_cpp_result_traits<const void*> { typedef NurResult_ptr type; static type make(const void *v) { return nur_ok_ptr((void*)v); } };
 
 template <typename T>
-inline typename _nur_cpp_result_traits<T>::type _nur_cpp_make_result(T val) {
-    return _nur_cpp_result_traits<T>::make(val);
+inline typename nur_cpp_result_traits<T>::type nur_cpp_make_result(T val) {
+    return nur_cpp_result_traits<T>::make(val);
 }
 
 extern "C" {
 
-#define NUR_H(val) _nur_cpp_make_result(val)
+#define NUR_H(val) nur_cpp_make_result(val)
 
-#define _NUR_GET_MACRO_3(_1, _2, _3, ...) _3
-#define _NUR_OK_1(val)         NUR_H(val)
-#define _NUR_OK_2(suffix, val) nur_ok_##suffix(val)
-#define NUR_OK(...) _NUR_GET_MACRO_3(__VA_ARGS__, _NUR_OK_2, _NUR_OK_1, _nur_unused)(__VA_ARGS__)
+#define NUR_INTERNAL_GET_MACRO_3(_1, _2, _3, ...) _3
+#define NUR_INTERNAL_OK_1(val)         NUR_H(val)
+#define NUR_INTERNAL_OK_2(suffix, val) nur_ok_##suffix(val)
+#define NUR_OK(...) NUR_INTERNAL_GET_MACRO_3(__VA_ARGS__, NUR_INTERNAL_OK_2, NUR_INTERNAL_OK_1, nur_internal_unused)(__VA_ARGS__)
 
 #elif (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11)
 /* Internal constructor helpers for C11 _Generic dispatch */
-NUR_UNUSED NUR_INLINE NurResult_i32 _nur_gen_i32(int32_t v) { return nur_ok_i32(v); }
-NUR_UNUSED NUR_INLINE NurResult_i64 _nur_gen_i64(int64_t v) { return nur_ok_i64(v); }
-NUR_UNUSED NUR_INLINE NurResult_i64 _nur_gen_long(long v) { return nur_ok_i64((int64_t)v); }
-NUR_UNUSED NUR_INLINE NurResult_usize _nur_gen_uint(unsigned int v) { return nur_ok_usize((size_t)v); }
-NUR_UNUSED NUR_INLINE NurResult_usize _nur_gen_ulong(unsigned long v) { return nur_ok_usize((size_t)v); }
-NUR_UNUSED NUR_INLINE NurResult_usize _nur_gen_ullong(unsigned long long v) { return nur_ok_usize((size_t)v); }
-NUR_UNUSED NUR_INLINE NurResult_f32 _nur_gen_f32(float v) { return nur_ok_f32(v); }
-NUR_UNUSED NUR_INLINE NurResult_f64 _nur_gen_f64(double v) { return nur_ok_f64(v); }
-NUR_UNUSED NUR_INLINE NurResult_cstr _nur_gen_cstr(char *v) { return nur_ok_cstr(v); }
-NUR_UNUSED NUR_INLINE NurResult_cstr_const _nur_gen_const_cstr(const char *v) { return nur_ok_cstr_const(v); }
-NUR_UNUSED NUR_INLINE NurResult_ptr _nur_gen_ptr(void *v) { return nur_ok_ptr(v); }
-NUR_UNUSED NUR_INLINE NurResult_ptr _nur_gen_const_ptr(const void *v) { return nur_ok_ptr((void*)v); }
-NUR_UNUSED NUR_INLINE NurResult_bool _nur_gen_bool(bool v) { return nur_ok_bool(v); }
-NUR_UNUSED NUR_INLINE NurResult_i8 _nur_gen_i8(int8_t v) { return nur_ok_i8(v); }
-NUR_UNUSED NUR_INLINE NurResult_u8 _nur_gen_u8(uint8_t v) { return nur_ok_u8(v); }
-NUR_UNUSED NUR_INLINE NurResult_i16 _nur_gen_i16(int16_t v) { return nur_ok_i16(v); }
-NUR_UNUSED NUR_INLINE NurResult_u16 _nur_gen_u16(uint16_t v) { return nur_ok_u16(v); }
+NUR_UNUSED NUR_INLINE NurResult_bool nur_internal_gen_bool(bool v) { return nur_ok_bool(v); }
+NUR_UNUSED NUR_INLINE NurResult_i8 nur_internal_gen_i8(int8_t v) { return nur_ok_i8(v); }
+NUR_UNUSED NUR_INLINE NurResult_u8 nur_internal_gen_u8(uint8_t v) { return nur_ok_u8(v); }
+NUR_UNUSED NUR_INLINE NurResult_i16 nur_internal_gen_i16(int16_t v) { return nur_ok_i16(v); }
+NUR_UNUSED NUR_INLINE NurResult_u16 nur_internal_gen_u16(uint16_t v) { return nur_ok_u16(v); }
+NUR_UNUSED NUR_INLINE NurResult_i32 nur_internal_gen_i32(int32_t v) { return nur_ok_i32(v); }
+NUR_UNUSED NUR_INLINE NurResult_i64 nur_internal_gen_long(long v) { return nur_ok_i64((int64_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_i64 nur_internal_gen_i64(int64_t v) { return nur_ok_i64(v); }
+NUR_UNUSED NUR_INLINE NurResult_usize nur_internal_gen_uint(unsigned int v) { return nur_ok_usize((size_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_usize nur_internal_gen_ulong(unsigned long v) { return nur_ok_usize((size_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_usize nur_internal_gen_ullong(unsigned long long v) { return nur_ok_usize((size_t)v); }
+NUR_UNUSED NUR_INLINE NurResult_f32 nur_internal_gen_f32(float v) { return nur_ok_f32(v); }
+NUR_UNUSED NUR_INLINE NurResult_f64 nur_internal_gen_f64(double v) { return nur_ok_f64(v); }
+NUR_UNUSED NUR_INLINE NurResult_cstr nur_internal_gen_cstr(char *v) { return nur_ok_cstr(v); }
+NUR_UNUSED NUR_INLINE NurResult_cstr_const nur_internal_gen_const_cstr(const char *v) { return nur_ok_cstr_const(v); }
+NUR_UNUSED NUR_INLINE NurResult_ptr nur_internal_gen_ptr(void *v) { return nur_ok_ptr(v); }
+NUR_UNUSED NUR_INLINE NurResult_ptr nur_internal_gen_const_ptr(const void *v) { return nur_ok_ptr((void*)v); }
 /**
  * Universal single-argument Result constructor using C11 _Generic.
  * Infers input type at compile-time and returns the corresponding NurResult_<T>.
@@ -1035,33 +1053,33 @@ NUR_UNUSED NUR_INLINE NurResult_u16 _nur_gen_u16(uint16_t v) { return nur_ok_u16
  *   return NUR_H(my_ptr);     // returns NurResult_ptr
  */
 #define NUR_H(val) _Generic((val), \
-    _Bool:              _nur_gen_bool, \
-    signed char:        _nur_gen_i8, \
-    unsigned char:      _nur_gen_u8, \
-    short:              _nur_gen_i16, \
-    unsigned short:     _nur_gen_u16, \
-    int:                _nur_gen_i32, \
-    long:               _nur_gen_long, \
-    long long:          _nur_gen_i64, \
-    unsigned int:       _nur_gen_uint, \
-    unsigned long:      _nur_gen_ulong, \
-    unsigned long long: _nur_gen_ullong, \
-    float:              _nur_gen_f32, \
-    double:             _nur_gen_f64, \
-    char*:              _nur_gen_cstr, \
-    const char*:        _nur_gen_const_cstr, \
-    void*:              _nur_gen_ptr, \
-    const void*:        _nur_gen_const_ptr  \
+    _Bool:              nur_internal_gen_bool, \
+    signed char:        nur_internal_gen_i8, \
+    unsigned char:      nur_internal_gen_u8, \
+    short:              nur_internal_gen_i16, \
+    unsigned short:     nur_internal_gen_u16, \
+    int:                nur_internal_gen_i32, \
+    long:               nur_internal_gen_long, \
+    long long:          nur_internal_gen_i64, \
+    unsigned int:       nur_internal_gen_uint, \
+    unsigned long:      nur_internal_gen_ulong, \
+    unsigned long long: nur_internal_gen_ullong, \
+    float:              nur_internal_gen_f32, \
+    double:             nur_internal_gen_f64, \
+    char*:              nur_internal_gen_cstr, \
+    const char*:        nur_internal_gen_const_cstr, \
+    void*:              nur_internal_gen_ptr, \
+    const void*:        nur_internal_gen_const_ptr  \
 )(val)
 
 /* Overloaded NUR_OK macro:
  * 1 Argument:  NUR_OK(val)         -> Dispatches dynamically via NUR_H(val)
  * 2 Arguments: NUR_OK(suffix, val) -> Dispatches via legacy nur_ok_##suffix(val)
  */
-#define _NUR_GET_MACRO_3(_1, _2, _3, ...) _3
-#define _NUR_OK_1(val)         NUR_H(val)
-#define _NUR_OK_2(suffix, val) nur_ok_##suffix(val)
-#define NUR_OK(...) _NUR_GET_MACRO_3(__VA_ARGS__, _NUR_OK_2, _NUR_OK_1, _nur_unused)(__VA_ARGS__)
+#define NUR_INTERNAL_GET_MACRO_3(_1, _2, _3, ...) _3
+#define NUR_INTERNAL_OK_1(val)         NUR_H(val)
+#define NUR_INTERNAL_OK_2(suffix, val) nur_ok_##suffix(val)
+#define NUR_OK(...) NUR_INTERNAL_GET_MACRO_3(__VA_ARGS__, NUR_INTERNAL_OK_2, NUR_INTERNAL_OK_1, nur_internal_unused)(__VA_ARGS__)
 
 #else
 /* C99 legacy 2-argument constructor */
@@ -1197,10 +1215,7 @@ NUR_INLINE nur_error_code_t nur_error_code_from_win32(unsigned long error) {
         case 145UL:
             return NUR_E_INVALID_STATE;
         /* Connection reset/dropped */
-        case 109UL: case 232UL: case 10054UL: case 10057UL:
-            return NUR_E_CONNECTION;
-        /* 10053 = WSAECONNABORTED -> CONNECTION (fix: was NUR_E_REFUSED) */
-        case 10053UL:
+        case 109UL: case 232UL: case 10053UL: case 10054UL: case 10057UL:
             return NUR_E_CONNECTION;
         case 121UL: case 258UL: case 1460UL: case 10060UL:
             return NUR_E_TIMEOUT;
@@ -1224,10 +1239,13 @@ NUR_INLINE nur_error_code_t nur_error_code_from_errno(int e) {
         case ENOENT:    return NUR_E_NOT_FOUND;
 #endif
 #ifdef EACCES
-        case EACCES:    return NUR_E_PERMISSION;
+        case EACCES:
 #endif
-#ifdef EPERM
-        case EPERM:     return NUR_E_PERMISSION;
+#if defined(EPERM) && (!defined(EACCES) || EPERM != EACCES)
+        case EPERM:
+#endif
+#if defined(EACCES) || defined(EPERM)
+            return NUR_E_PERMISSION;
 #endif
 #ifdef ENOMEM
         case ENOMEM:    return NUR_E_OUT_OF_MEMORY;
@@ -1245,22 +1263,28 @@ NUR_INLINE nur_error_code_t nur_error_code_from_errno(int e) {
         case ETIMEDOUT: return NUR_E_TIMEOUT;
 #endif
 #ifdef ENOBUFS
-        case ENOBUFS:   return NUR_E_RESOURCE_LIMIT;
+        case ENOBUFS:
 #endif
-#ifdef ENFILE
-        case ENFILE:    return NUR_E_RESOURCE_LIMIT;
+#if defined(ENFILE) && (!defined(ENOBUFS) || ENFILE != ENOBUFS)
+        case ENFILE:
 #endif
-#ifdef EMFILE
-        case EMFILE:    return NUR_E_RESOURCE_LIMIT;
+#if defined(EMFILE) && (!defined(ENOBUFS) || EMFILE != ENOBUFS) && (!defined(ENFILE) || EMFILE != ENFILE)
+        case EMFILE:
+#endif
+#if defined(ENOBUFS) || defined(ENFILE) || defined(EMFILE)
+        return NUR_E_RESOURCE_LIMIT;
 #endif
 #ifdef EPIPE
         case EPIPE:     return NUR_E_CLOSED;
 #endif
 #ifdef EBADF
-        case EBADF:     return NUR_E_INVALID_ARGUMENT;
+        case EBADF:
 #endif
-#ifdef EINVAL
-        case EINVAL:    return NUR_E_INVALID_ARGUMENT;
+#if defined(EINVAL) && (!defined(EBADF) || EINVAL != EBADF)
+        case EINVAL:
+#endif
+#if defined(EBADF) || defined(EINVAL)
+        return NUR_E_INVALID_ARGUMENT;
 #endif
 #ifdef ERANGE
         case ERANGE:    return NUR_E_OUT_OF_RANGE;
@@ -1275,10 +1299,13 @@ NUR_INLINE nur_error_code_t nur_error_code_from_errno(int e) {
         case ECONNREFUSED: return NUR_E_REFUSED;
 #endif
 #ifdef ECONNRESET
-        case ECONNRESET:   return NUR_E_CONNECTION;
+        case ECONNRESET:
 #endif
-#ifdef ENOTCONN
-        case ENOTCONN:     return NUR_E_CONNECTION;
+#if defined(ENOTCONN) && (!defined(ECONNRESET) || ENOTCONN != ECONNRESET)
+        case ENOTCONN:
+#endif
+#if defined(ECONNRESET) || defined(ENOTCONN)
+        return NUR_E_CONNECTION;
 #endif
 #ifdef ENOSYS
         case ENOSYS:    return NUR_E_UNSUPPORTED;
@@ -1317,7 +1344,7 @@ NUR_INLINE void nur_internal_sink_puts(nur_internal_sink_t *sink, const char *te
     }
 }
 
-#if defined(NUR_C89)
+#ifdef NUR_C89
     typedef unsigned long nur_internal_uintmax_t;
     typedef long nur_internal_intmax_t;
 #else
@@ -1592,13 +1619,13 @@ typedef void (*nur_panic_handler_t)(const char *msg, const nur_error_t *e,
 #define NUR_CUSTOM_PANIC_HANDLER_STORAGE static
 #endif
 
-NUR_CUSTOM_PANIC_HANDLER_STORAGE nur_panic_handler_t _nur_custom_panic_handler = NULL;
+NUR_CUSTOM_PANIC_HANDLER_STORAGE nur_panic_handler_t nur_internal_custom_panic_handler = NULL;
 
 /**
  * Set custom panic handler. Set NULL to restore default stderr+abort behaviour.
  */
 NUR_INLINE void nur_set_panic_handler(nur_panic_handler_t handler) {
-    _nur_custom_panic_handler = handler;
+    nur_internal_custom_panic_handler = handler;
 }
 
 /*
@@ -1615,8 +1642,8 @@ static void nur_internal_panic_result(nur_error_t e,
 #ifndef NUR_NO_STDIO
     char buffer[NUR_PRINT_BUFFER_SIZE];
 #endif
-    if (_nur_custom_panic_handler != NULL) {
-        _nur_custom_panic_handler(NULL, &e, file, line);
+    if (nur_internal_custom_panic_handler != NULL) {
+        nur_internal_custom_panic_handler(NULL, &e, file, line);
     }
 #ifndef NUR_NO_STDIO
     nur_error_format(&e, buffer, sizeof(buffer));
@@ -1632,8 +1659,8 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 #ifndef NUR_NO_STDIO
     char buffer[NUR_PRINT_BUFFER_SIZE];
 #endif
-    if (_nur_custom_panic_handler != NULL) {
-        _nur_custom_panic_handler(msg, &e, file, line);
+    if (nur_internal_custom_panic_handler != NULL) {
+        nur_internal_custom_panic_handler(msg, &e, file, line);
     }
 #ifndef NUR_NO_STDIO
     nur_error_format(&e, buffer, sizeof(buffer));
@@ -2484,7 +2511,7 @@ NUR_INLINE void nur_free(void *ptr) {
  * SCOPE-BASED RESOURCE CLEANUP (GCC/Clang __attribute__((cleanup)))
  *===========================================================================*/
 
-#if defined(NUR_GNU_EXTENSIONS)
+#ifdef NUR_GNU_EXTENSIONS
 
 #if !defined(NUR_NO_STDLIB) && !defined(NUR_NO_ALLOC)
 NUR_INLINE void nur_internal_cleanup_free(void *ptr_to_ptr) {

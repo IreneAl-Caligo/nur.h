@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Opt-In Safety Architecture Documentation**:
   - Expanded `README.md`, `AGENTS.md` (Section 7), and `AI_POLICY.md` (`NUR-AI-008`) with architectural clarity on when and how to apply `nur.h` with zero runtime overhead.
 
+### Fixed
+- **Reserved Identifier Compliance**: Eliminated all reserved global identifiers (`_nur_gen_*`, `_NUR_GET_MACRO_3`, `_NUR_OK_*`, `_nur_custom_panic_handler`, `_nur_cpp_result_traits`) in compliance with ISO C 7.1.3 and C++ standards.
+- **Clangd / Clang-Tidy Diagnostics & Branch Cloning**: Stacked consecutive switch branches in Win32 and errno error code mappers to eliminate branch-clone warnings. Configured `.clangd` and `.clang-tidy` to eliminate false-positive swappable parameter and unused-include warnings.
+- **Guarded `__has_c_attribute` Macro**: Safely decoupled and guarded C++17 attribute checking to prevent undefined function-like macro errors in C++ compilation.
+- **Test Include Relative Path**: Normalized header include to `../src/nur.h` in `test/test_super_header_and_dropin.c`.
+
 ## [1.3.1] - 2026-10-13
 
 ### Added

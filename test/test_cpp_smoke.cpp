@@ -7,22 +7,26 @@
 #include <string>
 #include <cassert>
 
-static NurResult_i32 divide(int a, int b) {
-    if (b == 0) {
+namespace {
+
+NurResult_i32 divide(int numerator, int denominator) {
+    if (denominator == 0) {
         return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "division by zero in C++"));
     }
-    return NUR_OK(i32, a / b);
+    return NUR_OK(i32, numerator / denominator);
 }
 
-static NurResult_void validate_port(int port) {
+NurResult_void validate_port(int port) {
     if (port <= 0 || port > 65535) {
         return nur_err_void(NUR_ERROR(NUR_E_OUT_OF_RANGE, "port out of range"));
     }
     return nur_ok_void();
 }
 
+} // namespace
+
 int main() {
-    std::cout << "=== C++ Compatibility Test ===" << std::endl;
+    std::cout << "=== C++ Compatibility Test ===\n";
 
     // 1. Success case
     NurResult_i32 ok_res = divide(100, 4);
@@ -78,6 +82,6 @@ int main() {
     nur::Result_usize r_len = nur::strlen("hello cpp");
     assert(nur::is_ok(r_len) && nur::value(r_len) == 9);
 
-    std::cout << "All C++ compatibility tests PASSED! [OK]" << std::endl;
+    std::cout << "All C++ compatibility tests PASSED! [OK]\n";
     return 0;
 }
