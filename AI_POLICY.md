@@ -142,6 +142,12 @@ cleanup:
 
 ---
 
+### `NUR-AI-008`: Infallible Boundary & No Over-Engineering
+- **Severity**: `RECOMMENDED` (Design Invariant)
+- **Rule**: Do not wrap pure mathematical computations (matrix multiplication, trigonometry), nanosecond-critical tight inner loops, trivial getters/setters, or hardware Interrupt Service Routines (ISRs) in `NurResult`. Use native primitive types for infallible code.
+
+---
+
 ## 3. Machine-Readable Schema Enforcement
 
 Linters and automated agents should validate their output against this JSON manifest:
@@ -155,7 +161,8 @@ Linters and automated agents should validate their output against this JSON mani
     { "id": "NUR-AI-004", "name": "TypedResultOverSentinels", "severity": "HIGH" },
     { "id": "NUR-AI-005", "name": "BreadcrumbContextChaining", "severity": "RECOMMENDED" },
     { "id": "NUR-AI-006", "name": "NoDiscardAnnotation", "severity": "HIGH" },
-    { "id": "NUR-AI-007", "name": "SecurityShieldCompliance", "severity": "BLOCKER" }
+    { "id": "NUR-AI-007", "name": "SecurityShieldCompliance", "severity": "BLOCKER" },
+    { "id": "NUR-AI-008", "name": "InfallibleBoundaryNoOverEngineering", "severity": "RECOMMENDED" }
   ]
 }
 ```

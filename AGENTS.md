@@ -130,4 +130,23 @@ Before submitting any code change:
   - Universal pointer predicates across any Result type: `nur_result_is_ok(&res)`, `nur_result_is_err(&res)`.
   - Error inspection: `nur_error_code_of(&err)`, `nur_error_message_of(&err)`.
 
+---
+
+## 7. When to Use & When NOT to Use nur.h
+
+AI agents and developers should apply `nur.h` where fallible failure modes exist, but strictly avoid over-engineering where failure is impossible:
+
+### ✅ When to Use:
+- **Fallible I/O Operations**: File I/O, network sockets, serialization/deserialization, IPC.
+- **Data Parsing**: User inputs, configuration files (JSON, INI, CSV), CLI arguments.
+- **Resource Management**: Dynamic memory allocation, device handles, connection pools.
+- **Fallible Domain Logic**: State transitions, balance transfers, permission validation.
+
+### ❌ When NOT to Use:
+- **Pure Numeric Arithmetic**: Fast linear algebra, matrix multiplication, trigonometric functions (`sin`, `cos`, `sqrt`). Use raw primitives (`float`, `double`).
+- **Tight Inner Loops**: High-frequency trading, audio DSP buffers, physics/rendering loops where failure is mathematically impossible and nanosecond cycle counts are critical.
+- **Trivial Getters / Setters**: Simple struct accessors (`get_id()`, `set_active()`) that cannot fail.
+- **Hardware Interrupt Service Routines (ISRs)**: Bare-metal microcontroller interrupts requiring bare register execution and minimal cycle latency.
+
+
 
