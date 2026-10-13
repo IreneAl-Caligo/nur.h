@@ -92,9 +92,8 @@ static NurResult_usize read_line(FILE *fp, char *buffer, size_t buffer_size) {
     if (fgets(buffer, (int)buffer_size, fp) == NULL) {
         if (feof(fp)) {
             return NUR_ERR(usize, NUR_ERROR(NUR_E_EOF, "End of file reached"));
-        } else {
-            return NUR_ERR(usize, NUR_ERROR_ERRNO("Failed to read from file"));
         }
+        return NUR_ERR(usize, NUR_ERROR_ERRNO("Failed to read from file"));
     }
     
     /* Calculate actual length read */
@@ -154,7 +153,9 @@ static NurResult_cstr create_temp_file(const char *content[], size_t line_count)
     /* Create temp filename using time for uniqueness (portable) */
     static char temp_filename[256];
     time_t now = time(NULL);
-    snprintf(temp_filename, sizeof(temp_filename), TEMP_DIR "nur_test_%ld.txt", (long)now);
+    if (snprintf(temp_filename, sizeof(temp_filename), TEMP_DIR "nur_test_%ld.txt", (long)now) < 0) {
+        return NUR_ERR(cstr, NUR_ERROR(NUR_E_IO, "Failed to create temp filename"));
+    }
     
     /* Open file for writing */
     FILE *fp;
@@ -206,11 +207,10 @@ static NurResult_usize process_file(const char *filepath) {
             if (error.code == NUR_E_EOF) {
                 /* EOF is expected - break the loop */
                 break;
-            } else {
-                /* Real error - close file and propagate */
-                fclose(fp); /* Clean up before returning error */
-                return NUR_ERR(usize, error);
             }
+            /* Real error - close file and propagate */
+            (void)fclose(fp); /* Clean up before returning error */
+            return NUR_ERR(usize, error);
         }
     }
     
@@ -245,7 +245,7 @@ static NurResult_void copy_file(const char *src_path, const char *dst_path) {
     {
         NurResult_ptr dst_result = open_file(dst_path, "w");
         if (NUR_IS_ERR(dst_result)) {
-            fclose(src_fp); /* Clean up source file */
+            (void)fclose(src_fp); /* Clean up source file */
             return NUR_ERR_VOID(NUR_ERROR_OF(dst_result));
         }
         dst_fp = NUR_VALUE(dst_result);
@@ -263,8 +263,8 @@ static NurResult_void copy_file(const char *src_path, const char *dst_path) {
             NurResult_usize write_result = write_data(dst_fp, buffer);
             if (NUR_IS_ERR(write_result)) {
                 /* Cleanup both files before returning error */
-                fclose(src_fp);
-                fclose(dst_fp);
+                (void)fclose(src_fp);
+                (void)fclose(dst_fp);
                 return NUR_ERR_VOID(NUR_ERROR_OF(write_result));
             }
             lines_copied++;
@@ -272,18 +272,17 @@ static NurResult_void copy_file(const char *src_path, const char *dst_path) {
             nur_error_t error = NUR_ERROR_OF(read_result);
             if (error.code == NUR_E_EOF) {
                 break; /* Normal end of file */
-            } else {
-                /* Error during read - cleanup both files */
-                fclose(src_fp);
-                fclose(dst_fp);
-                return NUR_ERR_VOID(error);
             }
+            /* Error during read - cleanup both files */
+            (void)fclose(src_fp);
+            (void)fclose(dst_fp);
+            return NUR_ERR_VOID(error);
         }
     }
     
     /* Close both files */
     if (fclose(src_fp) != 0) {
-        fclose(dst_fp); /* Still try to close destination */
+        (void)fclose(dst_fp); /* Still try to close destination */
         return NUR_ERR_VOID(NUR_ERROR_ERRNO_CTX("Failed to close source file", src_path));
     }
     
@@ -302,7 +301,7 @@ static NurResult_void copy_file(const char *src_path, const char *dst_path) {
  */
 static void cleanup_temp_file(const char *filepath) {
     if (filepath != NULL) {
-        remove(filepath); /* Ignore errors in cleanup */
+        (void)remove(filepath); /* Ignore errors in cleanup */
     }
 }
 
@@ -316,7 +315,7 @@ int main(void) {
         "Line one of test content",
         "Line two with some numbers: 12345", 
         "Line three with special chars: !@#$%",
-        "Final line of the test file"
+        "Final line of the test file",
     };
     
     NurResult_cstr temp_file = create_temp_file(test_content, 4);
@@ -345,7 +344,10 @@ int main(void) {
     
     char copy_filename[256];
     time_t copy_time = time(NULL);
-    snprintf(copy_filename, sizeof(copy_filename), TEMP_DIR "nur_copy_%ld.txt", (long)copy_time);
+    if (snprintf(copy_filename, sizeof(copy_filename), TEMP_DIR "nur_copy_%ld.txt", (long)copy_time) < 0) {
+        printf("   Failed to format copy filename\n");
+        return 1;
+    }
     
     NurResult_void copy_result = copy_file(temp_filename, copy_filename);
     if (NUR_IS_ERR(copy_result)) {
