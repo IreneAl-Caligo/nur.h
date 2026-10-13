@@ -5,6 +5,24 @@ All notable changes to nur.h will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-13
+
+### Added
+- **ISO C89 / ANSI C Full Compatibility**: Support for compiling under `-std=c89 -Wall -Wextra -Wpedantic` with zero warnings. Added C89 fallback type definitions (`bool`, `true`, `false`), standard compliant inlining fallbacks, and strict function location tracking (`NUR_LOC_FUNC` fallback to `"unknown"` under ANSI mode).
+- **C-Purist Safety Mode (`NUR_PURIST` / `NUR_NO_HIDDEN_RETURNS`)**: A dedicated compile-time enforcement switch for codebases that forbid hidden control flow inside macros (such as MISRA-C Rule 15.5 or single-exit guidelines). Disables all hidden early-return macros (`NUR_TRY*`, `NUR_CHECK*`, `NUR_RETURN_IF_ERR`) at compile time.
+- **First-Class Pure-Function API (100% Macro-Free)**:
+  - Typed inspection functions: `nur_is_ok_<type>`, `nur_is_err_<type>`, `nur_value_<type>`, `nur_error_<type>`, `nur_unwrap_or_<type>`.
+  - Void inspection functions: `nur_is_ok_void`, `nur_is_err_void`, `nur_error_void_val`.
+  - Universal pointer predicates: `nur_result_is_ok(&res)`, `nur_result_is_err(&res)`.
+  - Pure error field extractors: `nur_error_code_of(&err)`, `nur_error_message_of(&err)`.
+- **Dedicated C89 & C-Purist Test Suite**: Added `TEST/test_c89_and_purist.c` and `make test-c89`, `make test-purist`, verifying zero warnings across C89, C99, C11, C17, and C23.
+
+### Fixed
+- **C89 Variable Declaration Scoping**: Converted all inside-loop counter declarations (`for (size_t i = ...)` / `for (int i = ...)`) to block-scope top declarations.
+- **Declaration-After-Statement Warnings**: Fixed statement-declaration ordering across internal memory, file, and JSON helpers.
+- **ISO C90 `long long` Pedantic Warnings**: Constrained uintmax string sink formatting to `unsigned long` under C89 to eliminate `-Wlong-long` warnings.
+- **Universal Pointer Predicate Collision**: Renamed universal result pointer predicates to `nur_result_is_ok` and `nur_result_is_err` to prevent naming collision with `nur_is_ok_ptr` for `NurResult_ptr`.
+
 ## [1.2.1] - 2026-10-13
 
 ### Added

@@ -6,9 +6,9 @@ This document provides canonical guidelines, invariant rules, and patterns for g
 ---
 
 ## 1. Repository Architecture & Quick Reference
-- **Core Library**: `src/nur.h` (Single header, zero heap allocation, ISO C99/C11/C17/C23 & C++11 compatible).
+- **Core Library**: `src/nur.h` (Single header, zero heap allocation, ISO C89/C99/C11/C17/C23 & C++11 compatible).
 - **Author**: Irene Al-Caligo.
-- **Verification Command**: `make test` (C11 default) or `make test-all` (C99, C11, C17, C23 matrix).
+- **Verification Command**: `make test` (C11 default) or `make test-all` (C89, C99, C11, C17, C23 matrix).
 - **Sanitizers**: `make test-asan` (AddressSanitizer + UndefinedBehaviorSanitizer).
 
 ---
@@ -113,7 +113,21 @@ Before submitting any code change:
 
 ## 5. Modern Universal Syntax (v1.2.0+) & Compile-Time Safety
 - **Universal Single-Token Constructor**: In C11+, AI agents can write `return NUR_H(val);` or `return NUR_OK(val);`. The C11 `_Generic` engine automatically determines the target Result type (`i32`, `i64`, `usize`, `f32`, `f64`, `cstr`, `ptr`, `bool`).
-- **Legacy Backward Compatibility**: 2-argument `NUR_OK(suffix, val)` is strictly supported across all standards (C99/C11/C17/C23).
+- **Legacy Backward Compatibility**: 2-argument `NUR_OK(suffix, val)` is strictly supported across all standards (C89/C99/C11/C17/C23).
 - **Batteries-Included Extensions**: Use `nur_add_i32()`, `nur_sub_i32()`, `nur_mul_i32()`, `nur_div_i32()` for overflow-safe arithmetic, and `nur_file_read_text()` for zero-leak buffer reading.
 - **Security Shield**: `nur.h` blocks obsolete/vulnerable functions (e.g., `gets()`) and common typos (e.g., `prinf()`). Never bypass the security shield in production code.
+
+---
+
+## 6. ISO C89/C90 Support & C-Purist Pure-Function Mode (v1.3.0+)
+- **ISO C89 / ANSI C Compatibility**: `nur.h` compiles with zero warnings under `-std=c89 -Wall -Wextra -Wpedantic`. C89 environments automatically fall back to standard-compliant inlining, type mappings (`bool`, `true`, `false`), and function location tracking.
+- **C-Purist Safety Mode (`NUR_PURIST` / `NUR_NO_HIDDEN_RETURNS`)**:
+  - Define `#define NUR_PURIST 1` (or `#define NUR_NO_HIDDEN_RETURNS 1`) before including `nur.h`.
+  - Disables all macros that inject hidden early `return` statements (`NUR_TRY*`, `NUR_CHECK*`, `NUR_RETURN_IF_ERR`), preventing hidden exits and resource leaks.
+- **Pure-Function Macro-Free API**:
+  - For checking results without macros: `nur_is_ok_<type>(res)`, `nur_is_err_<type>(res)`.
+  - For extracting values/errors without macros: `nur_value_<type>(res)`, `nur_error_<type>(res)`, `nur_unwrap_or_<type>(res, default_val)`.
+  - Universal pointer predicates across any Result type: `nur_result_is_ok(&res)`, `nur_result_is_err(&res)`.
+  - Error inspection: `nur_error_code_of(&err)`, `nur_error_message_of(&err)`.
+
 

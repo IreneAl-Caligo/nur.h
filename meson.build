@@ -1,5 +1,5 @@
 project('nur', 'c',
-  version : '1.2.1',
+  version : '1.3.0',
   license : 'MIT',
   default_options : ['c_std=c11', 'warning_level=3'])
 

@@ -2,12 +2,12 @@
 
 ## 1. Supported Compilers & Standards
 
-| Compiler     | C99 | C11 | C17 | C23 | GNU Extensions |
-|--------------|-----|-----|-----|-----|----------------|
-| GCC >= 10    | Yes | Yes | Yes | Yes | Full           |
-| Clang >= 12  | Yes | Yes | Yes | Yes | Full           |
-| MSVC 2022    | Yes | Yes | Yes | Partial | None       |
-| MinGW-w64    | Yes | Yes | Yes | Yes | Full           |
+| Compiler     | C89 | C99 | C11 | C17 | C23 | GNU Extensions |
+|--------------|-----|-----|-----|-----|-----|----------------|
+| GCC >= 10    | Yes | Yes | Yes | Yes | Yes | Full           |
+| Clang >= 12  | Yes | Yes | Yes | Yes | Yes | Full           |
+| MSVC 2022    | Yes | Yes | Yes | Yes | Partial | None       |
+| MinGW-w64    | Yes | Yes | Yes | Yes | Yes | Full           |
 
 ---
 
@@ -64,9 +64,14 @@ For `NurResult_void`:
 
 ## 6. Recommended Compiler Flags
 
-### GCC / Clang
+### GCC / Clang (Modern C11)
 ```bash
 gcc -std=c11 -Wall -Wextra -Wpedantic -Werror -g -Isrc main.c -o main
+```
+
+### GCC / Clang (Legacy ISO C89/C90)
+```bash
+gcc -std=c89 -Wall -Wextra -Wpedantic -Werror -g -Isrc main.c -o main
 ```
 
 ### MSVC
@@ -76,17 +81,31 @@ cl.exe /std:c11 /W4 /WX /Isrc main.c /Fe:main.exe
 
 ---
 
-## 7. `musl` libc & Embedded Caveats
+## 7. C-Purist & Zero-Hidden-Return Mode (`NUR_PURIST`)
+
+For codebases with strict coding standards (such as MISRA-C or single-exit function rules) where macros with hidden `return` statements are forbidden:
+
+1. Define `#define NUR_PURIST 1` before including `nur.h`.
+2. All hidden early-return macros (`NUR_TRY*`, `NUR_CHECK*`, `NUR_RETURN_IF_ERR`) are strictly disabled at compile time.
+3. Use the first-class pure-function API instead:
+   - `nur_is_ok_<type>(res)` / `nur_is_err_<type>(res)`
+   - `nur_value_<type>(res)` / `nur_error_<type>(res)`
+   - `nur_result_is_ok(&res)` / `nur_result_is_err(&res)`
+   - `NUR_TRY_GOTO(...)` for clean, single-point goto cleanups without early returns.
+
+---
+
+## 8. `musl` libc & Embedded Caveats
 
 - `NUR_ENABLE_BACKTRACE` requires GNU `execinfo.h` (glibc only). Do not enable backtraces on `musl` (Alpine Linux) or bare-metal embedded systems.
 - For embedded and freestanding targets, define `-DNUR_FREESTANDING` or `-DNUR_LITE` to eliminate all runtime dependencies.
 
 ---
 
-## 8. Continuous Integration Matrix
+## 9. Continuous Integration Matrix
 
 ```bash
-make test-all   # Validates C99, C11, C17, and C23 matrix
+make test-all   # Validates C89, C99, C11, C17, and C23 matrix
 make test-asan  # AddressSanitizer and UndefinedBehaviorSanitizer
 make analyze    # Static analysis (cppcheck)
 ```

@@ -2,14 +2,20 @@
 
 A **single-header, zero-allocation, pedantic warning-free** C library that brings Rust-style `Result<T,E>` and `Option<T>` patterns to ISO C with compiler-assisted safety via `[[nodiscard]]`.
 
-**Author**: Irene Al-Caligo | **License**: MIT | **Compatibility**: ISO C99, C11, C17, C23 & C++11+
+**Author**: Irene Al-Caligo | **License**: MIT | **Compatibility**: ISO C89, C99, C11, C17, C23 & C++11+
 
-[![C Standard](https://img.shields.io/badge/Standards-C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue.svg)](src/nur.h)
+[![C Standard](https://img.shields.io/badge/Standards-C89%20%7C%20C99%20%7C%20C11%20%7C%20C17%20%7C%20C23-blue.svg)](src/nur.h)
 [![Pedantic Warnings](https://img.shields.io/badge/Warnings-Zero%20Pedantic-brightgreen.svg)](src/nur.h)
 [![Zero Heap Allocation](https://img.shields.io/badge/Memory-0%20Bytes%20Heap-brightgreen.svg)](docs/BENCHMARKS.md)
 [![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.ci/ci.yml)
 [![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.ci/ci.yml)
 [![AI / LLM Ready](https://img.shields.io/badge/AI%20DX-LLM%20Safe%20Contract-purple.svg)](AI_POLICY.md)
+
+<div align="center">
+  <br>
+  <img src="assets/demo.svg" alt="nur.h 5-Second Interactive Terminal Demo" width="94%">
+  <br>
+</div>
 
 ---
 
@@ -17,12 +23,14 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
 
 - [Why nur.h?](#-why-nurh)
 - [Quick Start](#-quick-start)
+- [Progressive Guide (Beginner to Expert & AI)](#-progressive-guide-beginner-to-expert--ai)
 - [Common Patterns Cheat Sheet](#-common-patterns-cheat-sheet)
 - [Bad Patterns vs. Good Patterns](#-bad-patterns-vs-good-patterns)
 - [When to Use & When NOT to Use](#-when-to-use--when-not-to-use)
 - [Real-World Production Examples](#-real-world-production-examples)
 - [Ergonomic Developer APIs](#-ergonomic-developer-apis)
 - [Leak-Free Resource Cleanup (`NUR_TRY_GOTO`)](#-leak-free-resource-cleanup-nur_try_goto)
+- [C-Purist Safety Mode & Pure Functions (`NUR_PURIST`)](#-c-purist-safety-mode--pure-functions-nur_purist)
 - [Performance & Zero-Allocation Benchmarks](#-performance--zero-allocation-benchmarks)
 - [AI / LLM Autonomous Code Generation](#-ai--llm-autonomous-code-generation)
 - [Build & Package Ecosystem](#-build--package-ecosystem)
@@ -91,6 +99,111 @@ int main(void) {
 ### 3. Compile cleanly across any standard
 ```bash
 gcc -std=c99 -Wall -Wextra -Wpedantic -Iinclude main.c -o main
+```
+
+---
+
+## 🎓 Progressive Guide (Beginner to Expert & AI)
+
+How `#include "nur.h"` elevates C code across all experience levels without disrupting traditional C idioms:
+
+<details open>
+<summary><b>🟢 Level 1: Beginner — Replacing Ambiguous Sentinel Values</b></summary>
+<br>
+
+In traditional C, functions often return `-1` or `NULL` on error. If `-1` is a valid calculation result, silent bugs occur:
+
+```c
+/* ❌ Traditional C: Ambiguous sentinel, caller can easily forget to check */
+int divide(int a, int b) {
+    if (b == 0) return -1; /* -1 could be a real calculation result! */
+    return a / b;
+}
+int res = divide(10, 0); /* Bug propagates silently */
+
+/* ✅ With nur.h: Explicit success value or structured diagnostic error */
+NurResult_i32 divide(int a, int b) {
+    if (b == 0) return NUR_ERR(i32, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "division by zero"));
+    return NUR_OK(i32, a / b); /* or NUR_H(a / b) in C11+ */
+}
+```
+</details>
+
+<details>
+<summary><b>🟡 Level 2: Intermediate — Clean Input Validation & Zero-Boilerplate Propagation</b></summary>
+<br>
+
+Eliminate nested `if` pyramids and messy out-parameter pointers when parsing configurations or user inputs:
+
+```c
+/* ✅ With nur.h: Type-safe guards and zero-overhead validation */
+NurResult_i32 parse_port(const char *str) {
+    NUR_CHECK(str != NULL, NUR_ERROR(NUR_E_NULL_POINTER, "port string is NULL"));
+    int p = atoi(str);
+    NUR_CHECK(p > 0 && p <= 65535, NUR_ERROR_CTX(NUR_E_OUT_OF_RANGE, "port out of range", str));
+    return NUR_OK(i32, p);
+}
+```
+</details>
+
+<details>
+<summary><b>🔴 Level 3: Advanced & Systems Expert — Zero-Leak Resource Cleanups (`goto cleanup`)</b></summary>
+<br>
+
+Systems developers demand single-exit cleanup and zero heap allocation. `nur.h` integrates seamlessly with traditional `goto cleanup`:
+
+```c
+/* ✅ Perfect harmony: Traditional C goto + nur.h leak-free safety */
+NurResult_i32 process_file(const char *path) {
+    FILE *f = fopen(path, "rb");
+    char *buf = malloc(4096);
+    int count = 0;
+    nur_error_t err = {0};
+
+    /* Safe propagation: On error, assigns err and jumps to cleanup without hidden returns */
+    NUR_TRY_GOTO(count, read_records(f, buf), err, cleanup);
+
+cleanup:
+    if (buf) free(buf);
+    if (f) fclose(f);
+    if (err.code != NUR_E_NONE) return nur_err_i32(err);
+    return NUR_OK(i32, count);
+}
+```
+</details>
+
+<details>
+<summary><b>🤖 Level 4: AI Agents & LLMs — Inviolable Contracts via `[[nodiscard]]`</b></summary>
+<br>
+
+Autonomous AI agents frequently forget to verify return codes. `nur.h` enforces compiler rejections if results are discarded:
+
+```c
+/* ✅ Compiler-enforced AI Safety: Discarding result fails compilation */
+NUR_NODISCARD NurResult_void apply_migration(Database *db, const char *sql) {
+    NUR_CHECK(db != NULL, NUR_ERROR(NUR_E_NULL_POINTER, "db pointer is NULL"));
+    NUR_TRY_VOID_FROM_VOID(execute_sql(db, sql));
+    return NUR_OK_VOID();
+}
+```
+</details>
+
+### 🤝 Seamless Syntax Harmony: All Syntaxes Work Together
+
+You don't have to choose between traditional C and modern abstractions. All 4 styles compile and interoperate in the **exact same codebase**:
+
+```c
+/* 1. Traditional C Idiom (Standard struct & union access) */
+if (res.ok) { int val = res.u.value; }
+
+/* 2. ISO C89/C99 Explicit Syntax */
+return NUR_OK(i32, 42);
+
+/* 3. Modern C11+ Universal Syntax (via _Generic auto-dispatch) */
+return NUR_H(42);   /* or NUR_OK(42) */
+
+/* 4. C-Purist Macro-Free Pure Functions (MISRA-C single-exit compliant) */
+if (nur_is_ok_i32(res)) { int val = nur_value_i32(res); }
 ```
 
 ---
@@ -210,6 +323,48 @@ cleanup:
 
 ---
 
+## 🧩 C-Purist Safety Mode & Pure Functions (`NUR_PURIST`)
+
+Many C purists, safety-critical guidelines (e.g. MISRA-C), and large codebases forbid macros that inject hidden control flow (such as early `return` statements inside `NUR_TRY*`).
+
+`nur.h` provides **two dedicated solutions** for full purist compliance:
+
+### 1. Compile-Time Enforcement via `NUR_PURIST`
+Define `#define NUR_PURIST 1` (or `#define NUR_NO_HIDDEN_RETURNS 1`) before including `nur.h`. All hidden early-return macros (`NUR_TRY*`, `NUR_CHECK*`, `NUR_RETURN_IF_ERR`) are strictly **disabled at compile time**, ensuring zero surprise returns or resource leaks.
+
+### 2. First-Class Pure-Function API (100% Macro-Free)
+All result checking and value unpacking can be done with pure, typed inline functions:
+
+```c
+#define NUR_PURIST 1
+#include "nur.h"
+
+NurResult_i32 compute(int a, int b) {
+    NurResult_i32 step = safe_div(a, b);
+    
+    /* 1. Pure function predicate — no macros */
+    if (nur_is_err_i32(step)) {
+        return step; /* 100% explicit return visible in source code */
+    }
+    
+    /* 2. Pure function value extractor */
+    int val = nur_value_i32(step);
+    
+    /* 3. Pure function fallback */
+    int safe_val = nur_unwrap_or_i32(step, 0);
+
+    return nur_ok_i32(val * 2);
+}
+```
+
+Universal pointer predicates are also available across any Result type:
+```c
+if (nur_result_is_ok(&res)) { ... }
+if (nur_result_is_err(&res)) { ... }
+```
+
+---
+
 ## 📊 Performance & Zero-Allocation Benchmarks
 
 Measured with GCC `-O2` on AMD/Intel x86_64:
@@ -271,7 +426,7 @@ Detailed installation steps available in [docs/PACKAGING.md](docs/PACKAGING.md).
 Run all quality checks locally:
 
 ```bash
-# Run tests across all ISO C standards (C99, C11, C17, C23)
+# Run tests across all ISO C standards (C89, C99, C11, C17, C23)
 make test-all
 
 # Check zero pedantic warnings

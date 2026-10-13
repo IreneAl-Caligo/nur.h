@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(nur VERSION 1.2.1 LANGUAGES C CXX)
+project(nur VERSION 1.3.0 LANGUAGES C CXX)
 
 # Header-only interface library target
 add_library(nur INTERFACE)

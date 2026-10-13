@@ -34,10 +34,10 @@ extern "C" {
  * VERSION INFORMATION
  *===========================================================================*/
 #define NUR_VERSION_MAJOR 1
-#define NUR_VERSION_MINOR 2
-#define NUR_VERSION_PATCH 1
-#define NUR_VERSION_STRING "1.2.1"
-#define NUR_VERSION_NUMBER 10201
+#define NUR_VERSION_MINOR 3
+#define NUR_VERSION_PATCH 0
+#define NUR_VERSION_STRING "1.3.0"
+#define NUR_VERSION_NUMBER 10300
 
 #ifdef NUR_LITE
     #define NUR_NO_EXTENSIONS 1
@@ -61,6 +61,8 @@ extern "C" {
     #define NUR_C99 1
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
     #define NUR_C99 1
+#else
+    #define NUR_C89 1
 #endif
 
 /*============================================================================
@@ -89,9 +91,20 @@ extern "C" {
 /*============================================================================
  * REQUIRED HEADERS
  *===========================================================================*/
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#if defined(NUR_C89) && !defined(__cplusplus)
+    #ifndef __bool_true_false_are_defined
+        typedef int bool;
+        #define true 1
+        #define false 0
+        #define __bool_true_false_are_defined 1
+    #endif
+    #include <stddef.h>
+    #include <stdint.h>
+#else
+    #include <stdbool.h>
+    #include <stddef.h>
+    #include <stdint.h>
+#endif
 
 #ifndef NUR_NO_ERRNO
     #include <errno.h>
@@ -149,7 +162,11 @@ extern "C" {
 #endif
 
 /* Function declaration helper enforcing nodiscard across all compilers */
-#define NUR_FN(ReturnType, FuncName, ...) NUR_NODISCARD ReturnType FuncName(__VA_ARGS__)
+#if defined(NUR_C89)
+    /* ISO C89 does not support variadic macros in pedantic mode */
+#else
+    #define NUR_FN(ReturnType, FuncName, ...) NUR_NODISCARD ReturnType FuncName(__VA_ARGS__)
+#endif
 
 /* Unused attribute to prevent -Wunused-function in headers */
 #if defined(NUR_GNU_EXTENSIONS)
@@ -162,7 +179,18 @@ extern "C" {
  * NUR_INLINE does NOT use always_inline -- panic helpers are noinline+cold.
  * Removing always_inline avoids inlining the 1 KiB panic buffer at every
  * NUR_UNWRAP call site (~11x code size reduction). */
-#if defined(NUR_GNU_EXTENSIONS)
+#if defined(NUR_C89)
+    #if defined(__GNUC__) || defined(__clang__)
+        #define NUR_INLINE  static __inline__
+        #define NUR_NOINLINE __attribute__((noinline))
+    #elif defined(_MSC_VER)
+        #define NUR_INLINE   static __inline
+        #define NUR_NOINLINE __declspec(noinline)
+    #else
+        #define NUR_INLINE   static
+        #define NUR_NOINLINE
+    #endif
+#elif defined(NUR_GNU_EXTENSIONS)
     #define NUR_INLINE  static inline
     #define NUR_NOINLINE __attribute__((noinline))
 #elif defined(NUR_MSVC)
@@ -196,6 +224,14 @@ extern "C" {
     #define NUR_LOC_FILE ((const char *)0)
     #define NUR_LOC_FUNC ((const char *)0)
     #define NUR_LOC_LINE 0U
+#elif defined(NUR_C89)
+    #define NUR_LOC_FILE __FILE__
+    #if (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && !defined(__STRICT_ANSI__)
+        #define NUR_LOC_FUNC __FUNCTION__
+    #else
+        #define NUR_LOC_FUNC "unknown"
+    #endif
+    #define NUR_LOC_LINE ((unsigned int)__LINE__)
 #else
     #define NUR_LOC_FILE __FILE__
     #define NUR_LOC_FUNC __func__
@@ -359,6 +395,7 @@ NUR_INLINE nur_error_t nur_internal_make_error(
     const char *message, const char *context,
     const char *file, const char *func, unsigned int line
 ) {
+    int i_;
     nur_error_t err;
     err.code = code;
     err.sys = sys;
@@ -369,7 +406,7 @@ NUR_INLINE nur_error_t nur_internal_make_error(
     err.func = func;
     err.line = line;
     err.context_count = 0;
-    for (int i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
+    for (i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
         err.context_chain[i_] = (const char *)0;
     }
     if (context != (const char *)0) {
@@ -400,6 +437,7 @@ NUR_INLINE nur_error_t nur_internal_make_error(
  * Usage: NUR_WRAP_ERROR(NUR_ERROR_OF(res), "failed to parse config")
  */
 NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
+    int i_;
     if (ctx == (const char *)0) return e;
 
     if (e.cause == (const char *)0 && e.context != (const char *)0) {
@@ -410,7 +448,7 @@ NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
         e.context_chain[e.context_count++] = ctx;
     } else {
         /* Preserve origin at [0], shift intermediate entries */
-        for (int i_ = 1; i_ < NUR_MAX_CONTEXT_DEPTH - 1; ++i_) {
+        for (i_ = 1; i_ < NUR_MAX_CONTEXT_DEPTH - 1; ++i_) {
             e.context_chain[i_] = e.context_chain[i_ + 1];
         }
         e.context_chain[NUR_MAX_CONTEXT_DEPTH - 1] = ctx;
@@ -424,10 +462,11 @@ NUR_INLINE nur_error_t nur_error_with_context(nur_error_t e, const char *ctx) {
  * Explicitly wrap an error with a high-level context and specific root cause.
  */
 NUR_INLINE nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, const char *cause_str) {
+    int i_;
     e.context = ctx;
     e.cause = cause_str;
     e.context_count = 0;
-    for (int i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
+    for (i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
         e.context_chain[i_] = (const char *)0;
     }
     if (cause_str != (const char *)0) {
@@ -561,6 +600,26 @@ NUR_INLINE nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, cons
     } \
     \
     NUR_NODISCARD NUR_UNUSED \
+    NUR_INLINE bool nur_is_ok_##suffix(NurResult_##suffix r_) { \
+        return r_.ok; \
+    } \
+    \
+    NUR_NODISCARD NUR_UNUSED \
+    NUR_INLINE bool nur_is_err_##suffix(NurResult_##suffix r_) { \
+        return !r_.ok; \
+    } \
+    \
+    NUR_NODISCARD NUR_UNUSED \
+    NUR_INLINE T nur_value_##suffix(NurResult_##suffix r_) { \
+        return r_.u.value; \
+    } \
+    \
+    NUR_NODISCARD NUR_UNUSED \
+    NUR_INLINE nur_error_t nur_error_##suffix(NurResult_##suffix r_) { \
+        return r_.u.error; \
+    } \
+    \
+    NUR_NODISCARD NUR_UNUSED \
     NUR_INLINE T nur_unwrap_or_##suffix(NurResult_##suffix r_, T fallback_) { \
         return r_.ok ? r_.u.value : fallback_; \
     } \
@@ -610,10 +669,26 @@ typedef struct NUR_NODISCARD_TYPE NurResult_void {
 
 #define NUR_VOID_ERROR_OF(r) ((r).error)
 
+NUR_NODISCARD NUR_UNUSED
+NUR_INLINE bool nur_is_ok_void(NurResult_void r_) {
+    return r_.ok;
+}
+
+NUR_NODISCARD NUR_UNUSED
+NUR_INLINE bool nur_is_err_void(NurResult_void r_) {
+    return !r_.ok;
+}
+
+NUR_NODISCARD NUR_UNUSED
+NUR_INLINE nur_error_t nur_error_void_val(NurResult_void r_) {
+    return r_.error;
+}
+
 /**
  * Create a successful void result. (Freestanding-safe: no memset needed)
  */
 NUR_NODISCARD NUR_INLINE NurResult_void nur_ok_void(void) {
+    int i_;
     NurResult_void r;
     r.ok = true;
     r.error.code = NUR_E_NONE;
@@ -625,7 +700,7 @@ NUR_NODISCARD NUR_INLINE NurResult_void nur_ok_void(void) {
     r.error.func = (const char *)0;
     r.error.line = 0U;
     r.error.context_count = 0;
-    for (int i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
+    for (i_ = 0; i_ < NUR_MAX_CONTEXT_DEPTH; ++i_) {
         r.error.context_chain[i_] = (const char *)0;
     }
 #ifdef NUR_ENABLE_BACKTRACE
@@ -674,9 +749,11 @@ NUR_NODISCARD NUR_INLINE NurResult_void nur_err_void(nur_error_t err_) {
     \
     NUR_INLINE NurOption_##suffix nur_none_##suffix(void) { \
         NurOption_##suffix o_; \
+        unsigned char *p_; \
+        size_t i_; \
         o_.some = false; \
-        unsigned char *p_ = (unsigned char *)(void *)&o_.value; \
-        for (size_t i_ = 0; i_ < sizeof(T); ++i_) p_[i_] = 0; \
+        p_ = (unsigned char *)(void *)&o_.value; \
+        for (i_ = 0; i_ < sizeof(T); ++i_) p_[i_] = 0; \
         return o_; \
     } \
     struct _nur_dummy_opt_decl_##suffix
@@ -695,6 +772,7 @@ NUR_OPTION_TYPE(void *, ptr);
  * CONVENIENCE MACROS & UNIVERSAL TYPE ENGINE (Pillar 1)
  *===========================================================================*/
 
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11) || (defined(__cplusplus) && __cplusplus >= 201103L)
 /* Internal constructor helpers for C11 _Generic dispatch */
 NUR_UNUSED NUR_INLINE NurResult_i32 _nur_gen_i32(int32_t v) { return nur_ok_i32(v); }
 NUR_UNUSED NUR_INLINE NurResult_i64 _nur_gen_i64(int64_t v) { return nur_ok_i64(v); }
@@ -709,8 +787,6 @@ NUR_UNUSED NUR_INLINE NurResult_cstr _nur_gen_const_cstr(const char *v) { return
 NUR_UNUSED NUR_INLINE NurResult_ptr _nur_gen_ptr(void *v) { return nur_ok_ptr(v); }
 NUR_UNUSED NUR_INLINE NurResult_ptr _nur_gen_const_ptr(const void *v) { return nur_ok_ptr((void*)v); }
 NUR_UNUSED NUR_INLINE NurResult_bool _nur_gen_bool(bool v) { return nur_ok_bool(v); }
-
-#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || defined(NUR_C11) || (defined(__cplusplus) && __cplusplus >= 201103L)
 /**
  * Universal single-argument Result constructor using C11 _Generic.
  * Infers input type at compile-time and returns the corresponding NurResult_<T>.
@@ -999,7 +1075,15 @@ NUR_INLINE void nur_internal_sink_puts(nur_internal_sink_t *sink, const char *te
     }
 }
 
-NUR_INLINE void nur_internal_sink_putu(nur_internal_sink_t *sink, unsigned long long value) {
+#if defined(NUR_C89)
+    typedef unsigned long nur_internal_uintmax_t;
+    typedef long nur_internal_intmax_t;
+#else
+    typedef unsigned long long nur_internal_uintmax_t;
+    typedef long long nur_internal_intmax_t;
+#endif
+
+NUR_INLINE void nur_internal_sink_putu(nur_internal_sink_t *sink, nur_internal_uintmax_t value) {
     char digits[24];
     size_t count = 0;
     do {
@@ -1011,13 +1095,13 @@ NUR_INLINE void nur_internal_sink_putu(nur_internal_sink_t *sink, unsigned long 
     }
 }
 
-NUR_INLINE void nur_internal_sink_puti(nur_internal_sink_t *sink, long long value) {
+NUR_INLINE void nur_internal_sink_puti(nur_internal_sink_t *sink, nur_internal_intmax_t value) {
     if (value < 0) {
         nur_internal_sink_putc(sink, '-');
-        /* Fix -Wsign-conversion: cast through unsigned long long explicitly */
-        nur_internal_sink_putu(sink, (unsigned long long)(0ULL - (unsigned long long)value));
+        /* Fix -Wsign-conversion: cast through unsigned integer explicitly */
+        nur_internal_sink_putu(sink, (nur_internal_uintmax_t)(0 - (nur_internal_uintmax_t)value));
     } else {
-        nur_internal_sink_putu(sink, (unsigned long long)value);
+        nur_internal_sink_putu(sink, (nur_internal_uintmax_t)value);
     }
 }
 
@@ -1028,11 +1112,15 @@ NUR_INLINE void nur_internal_sink_puti(nur_internal_sink_t *sink, long long valu
  * Fix: if error is NULL, writes NUL to buffer[0] so buf is always valid.
  */
 NUR_INLINE size_t nur_error_format(const nur_error_t *error, char *buffer, size_t capacity) {
+    nur_internal_sink_t sink;
+    unsigned char i_;
     if (!error) {
         if (buffer && capacity > 0) buffer[0] = '\0';
         return 0;
     }
-    nur_internal_sink_t sink = { buffer, capacity, 0 };
+    sink.buffer = buffer;
+    sink.capacity = capacity;
+    sink.length = 0;
     
     nur_internal_sink_puts(&sink, nur_error_code_name(error->code));
     nur_internal_sink_puts(&sink, ": ");
@@ -1052,7 +1140,7 @@ NUR_INLINE size_t nur_error_format(const nur_error_t *error, char *buffer, size_
 
     if (error->context_count > 2) {
         nur_internal_sink_puts(&sink, " (chain: ");
-        for (unsigned char i_ = error->context_count; i_ > 0; --i_) {
+        for (i_ = error->context_count; i_ > 0; --i_) {
             if (error->context_chain[i_ - 1] != (const char *)0) {
                 if (i_ < error->context_count) nur_internal_sink_puts(&sink, " -> ");
                 nur_internal_sink_puts(&sink, error->context_chain[i_ - 1]);
@@ -1094,26 +1182,32 @@ NUR_INLINE size_t nur_error_format(const nur_error_t *error, char *buffer, size_
  * {"ok":false,"code":30,"name":"NUR_E_NOT_FOUND","message":"file missing","context":"cfg.json","sys":2,"file":"main.c","func":"run","line":42}
  */
 NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t capacity) {
+    nur_internal_sink_t sink;
+    size_t i;
+    unsigned char i_;
+    const char *p;
     if (!error) {
         if (buffer && capacity > 0) {
             static const char null_json[] = "{\"ok\":true}";
             size_t len = sizeof(null_json) - 1;
             size_t copy_len = len < capacity ? len : capacity - 1;
-            for (size_t i = 0; i < copy_len; ++i) buffer[i] = null_json[i];
+            for (i = 0; i < copy_len; ++i) buffer[i] = null_json[i];
             buffer[copy_len] = '\0';
             return len;
         }
         return 11;
     }
-    nur_internal_sink_t sink = { buffer, capacity, 0 };
+    sink.buffer = buffer;
+    sink.capacity = capacity;
+    sink.length = 0;
     nur_internal_sink_puts(&sink, "{\"ok\":false,\"code\":");
-    nur_internal_sink_putu(&sink, (unsigned long long)error->code);
+    nur_internal_sink_putu(&sink, (nur_internal_uintmax_t)error->code);
     nur_internal_sink_puts(&sink, ",\"name\":\"");
     nur_internal_sink_puts(&sink, nur_error_code_name(error->code));
     nur_internal_sink_puts(&sink, "\",\"message\":");
     if (error->message) {
         nur_internal_sink_putc(&sink, '"');
-        const char *p = error->message;
+        p = error->message;
         while (*p) {
             if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
             else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
@@ -1130,7 +1224,7 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
 
     if (error->context && error->context[0] != '\0') {
         nur_internal_sink_puts(&sink, ",\"context\":\"");
-        const char *p = error->context;
+        p = error->context;
         while (*p) {
             if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
             else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
@@ -1145,7 +1239,7 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
 
     if (error->cause && error->cause[0] != '\0') {
         nur_internal_sink_puts(&sink, ",\"cause\":\"");
-        const char *p = error->cause;
+        p = error->cause;
         while (*p) {
             if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
             else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
@@ -1160,10 +1254,10 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
 
     if (error->context_count > 1) {
         nur_internal_sink_puts(&sink, ",\"chain\":[");
-        for (unsigned char i_ = 0; i_ < error->context_count; ++i_) {
+        for (i_ = 0; i_ < error->context_count; ++i_) {
             if (i_ > 0) nur_internal_sink_putc(&sink, ',');
             nur_internal_sink_putc(&sink, '"');
-            const char *p = error->context_chain[i_];
+            p = error->context_chain[i_];
             while (p && *p) {
                 if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
                 else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
@@ -1185,7 +1279,7 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
 
     if (error->file) {
         nur_internal_sink_puts(&sink, ",\"file\":\"");
-        const char *p = error->file;
+        p = error->file;
         while (*p) {
             if (*p == '"') nur_internal_sink_puts(&sink, "\\\"");
             else if (*p == '\\') nur_internal_sink_puts(&sink, "\\\\");
@@ -1262,11 +1356,13 @@ NUR_INLINE void nur_set_panic_handler(nur_panic_handler_t handler) {
 NUR_NOINLINE NUR_COLD NUR_NORETURN NUR_UNUSED
 static void nur_internal_panic_result(nur_error_t e,
                                       const char *file, unsigned int line) {
+#ifndef NUR_NO_STDIO
+    char buffer[NUR_PRINT_BUFFER_SIZE];
+#endif
     if (_nur_custom_panic_handler != NULL) {
         _nur_custom_panic_handler(NULL, &e, file, line);
     }
 #ifndef NUR_NO_STDIO
-    char buffer[NUR_PRINT_BUFFER_SIZE];
     nur_error_format(&e, buffer, sizeof(buffer));
     fprintf(stderr, "nur panic at %s:%u: %s\n", file ? file : "<unknown>", line, buffer);
     fflush(stderr);
@@ -1277,11 +1373,13 @@ static void nur_internal_panic_result(nur_error_t e,
 NUR_NOINLINE NUR_COLD NUR_NORETURN NUR_UNUSED
 static void nur_internal_panic_msg(const char *msg, nur_error_t e,
                                    const char *file, unsigned int line) {
+#ifndef NUR_NO_STDIO
+    char buffer[NUR_PRINT_BUFFER_SIZE];
+#endif
     if (_nur_custom_panic_handler != NULL) {
         _nur_custom_panic_handler(msg, &e, file, line);
     }
 #ifndef NUR_NO_STDIO
-    char buffer[NUR_PRINT_BUFFER_SIZE];
     nur_error_format(&e, buffer, sizeof(buffer));
     fprintf(stderr, "nur panic at %s:%u: %s: %s\n", file ? file : "<unknown>", line, msg ? msg : "", buffer);
     fflush(stderr);
@@ -1534,8 +1632,46 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 #endif /* NUR_GNU_EXTENSIONS */
 
 /*============================================================================
+ * C-PURIST & EXPLICIT CONTROL FLOW (Pillar 6)
+ *===========================================================================*/
+
+/**
+ * When NUR_NO_HIDDEN_RETURNS or NUR_PURIST is defined, all macros containing
+ * hidden early-return statements (NUR_TRY*, NUR_RETURN_IF_ERR, NUR_CHECK*)
+ * are disabled.
+ *
+ * This provides compile-time enforcement for codebases requiring 100% explicit
+ * control flow, zero-hidden-return safety, and zero leak guarantees.
+ */
+#if defined(NUR_NO_HIDDEN_RETURNS) || defined(NUR_PURIST)
+    #define NUR_PURIST_MODE 1
+#endif
+
+/**
+ * Universal pointer predicates for pure function checks (100% macro-free).
+ * Works across all NurResult_<T> types since .ok is at byte offset 0.
+ */
+NUR_INLINE bool nur_result_is_ok(const void *result_ptr) {
+    return result_ptr != NULL && *(const bool *)result_ptr;
+}
+
+NUR_INLINE bool nur_result_is_err(const void *result_ptr) {
+    return result_ptr == NULL || !(*(const bool *)result_ptr);
+}
+
+NUR_INLINE nur_error_code_t nur_error_code_of(const nur_error_t *err) {
+    return err ? err->code : NUR_E_NONE;
+}
+
+NUR_INLINE const char *nur_error_message_of(const nur_error_t *err) {
+    return (err && err->message) ? err->message : "";
+}
+
+/*============================================================================
  * EARLY-RETURN HELPERS
  *===========================================================================*/
+
+#ifndef NUR_PURIST_MODE
 
 /**
  * Return an error result from the enclosing function if expr is Err.
@@ -1582,6 +1718,8 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
             return nur_err_##DestSuffix(NUR_ERROR((code), (msg))); \
         } \
     } while (0)
+
+#endif /* !NUR_PURIST_MODE */
 
 
 /**
@@ -1662,6 +1800,8 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
  *   NUR_TRY_TO(i32, i32, value, parse_number(str));
  *   // value now contains the parsed number, or function returned error
  */
+#ifndef NUR_PURIST_MODE
+
 #define NUR_TRY_TO(DestSuffix, SrcSuffix, lhs, expr) \
     do { \
         NurResult_##SrcSuffix _nur_tmp_ = (expr); \
@@ -1744,10 +1884,15 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
         } \
     } while (0)
 
+#endif /* !NUR_PURIST_MODE */
+
 /**
  * NUR_TRY_GOTO(lhs, expr, errvar, label) -- portable, leak-free.
  * On error: stores error in errvar, jumps to label for cleanup.
  * On success: lhs = value. Evaluates expr exactly once.
+ *
+ * Available in all modes (including NUR_PURIST_MODE) because control flow
+ * is explicitly routed to label, without hidden returns.
  *
  * Usage:
  *   nur_error_t err = {0}; int val;
@@ -1757,10 +1902,10 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
  *   if (fp) fclose(fp);
  *   if (err.code) return nur_err_i32(err);
  *
- * Non-GNU: NUR_TRY_GOTO uses __auto_type via GNU block. For MSVC, store
- * result in a named variable first: NurResult_i32 _r = f(); NUR_TRY_GOTO(v,_r,err,lbl);
+ * Non-GNU / C89: NUR_TRY_GOTO uses pre-assigned named variable:
+ *   NurResult_i32 _r = f(); NUR_TRY_GOTO(v,_r,err,lbl);
  */
-#if defined(NUR_GNU_EXTENSIONS)
+#if defined(NUR_GNU_EXTENSIONS) && !defined(NUR_C89)
 #define NUR_TRY_GOTO(lhs, expr, errvar, label) \
     do { \
         __extension__ __auto_type _ntg_ = (expr); \
@@ -1768,7 +1913,7 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
         (lhs) = _ntg_.u.value; \
     } while (0)
 #else
-/* Non-GNU portable: user must pre-assign result to a named variable before
+/* Non-GNU & C89 portable: user must pre-assign result to a named variable before
  * passing to NUR_TRY_GOTO to avoid double-evaluation of expr.
  * Example:
  *   NurResult_i32 _r = parse_int(str);
@@ -1788,7 +1933,7 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
 /**
  * NUR_TRY_VOID_GOTO(expr, errvar, label) -- for NurResult_void sources.
  */
-#if defined(NUR_GNU_EXTENSIONS)
+#if defined(NUR_GNU_EXTENSIONS) && !defined(NUR_C89)
 #define NUR_TRY_VOID_GOTO(expr, errvar, label) \
     do { \
         __extension__ __auto_type _ntvg_ = (expr); \
@@ -1801,6 +1946,8 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
         if (NUR_UNLIKELY(!_ntvg_.ok)) { (errvar) = _ntvg_.error; goto label; } \
     } while (0)
 #endif
+
+#ifndef NUR_PURIST_MODE
 
 #ifdef NUR_GNU_EXTENSIONS
 
@@ -1869,6 +2016,8 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
         } \
     } while (0)
 
+#endif /* !NUR_PURIST_MODE */
+
 /*============================================================================
  * MEMORY ALLOCATION WRAPPERS
  *===========================================================================*/
@@ -1890,11 +2039,12 @@ static void nur_internal_panic_msg(const char *msg, nur_error_t e,
  *   }
  */
 NUR_NODISCARD NUR_INLINE NurResult_ptr nur_malloc(size_t size) {
+    void *ptr;
     if (size == 0) {
         return nur_err_ptr(NUR_ERROR(NUR_E_INVALID_ARGUMENT, "malloc: size cannot be zero"));
     }
     
-    void *ptr = malloc(size);
+    ptr = malloc(size);
     if (ptr == NULL) {
         return nur_err_ptr(NUR_ERROR(NUR_E_OUT_OF_MEMORY, "malloc failed"));
     }
@@ -1919,11 +2069,12 @@ NUR_NODISCARD NUR_INLINE NurResult_ptr nur_malloc(size_t size) {
  *   }
  */
 NUR_NODISCARD NUR_INLINE NurResult_ptr nur_realloc(void *ptr, size_t size) {
+    void *new_ptr;
     if (size == 0) {
         return nur_err_ptr(NUR_ERROR(NUR_E_INVALID_ARGUMENT, "realloc: size cannot be zero"));
     }
     
-    void *new_ptr = realloc(ptr, size);
+    new_ptr = realloc(ptr, size);
     if (new_ptr == NULL) {
         return nur_err_ptr(NUR_ERROR(NUR_E_OUT_OF_MEMORY, "realloc failed"));
     }
@@ -2058,11 +2209,12 @@ NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
 
 #ifdef NUR_ENABLE_BACKTRACE
     if (err->trace_count > 0) {
+        int i;
         fprintf(f, "Stacktrace:\n");
 #if defined(__linux__) || defined(__APPLE__)
         backtrace_symbols_fd(err->trace, err->trace_count, fileno(f));
 #else
-        for (int i = 0; i < err->trace_count; i++) {
+        for (i = 0; i < err->trace_count; i++) {
             fprintf(f, "  [%d] %p\n", i, err->trace[i]);
         }
 #endif
@@ -2088,14 +2240,12 @@ NUR_INLINE void nur_error_print(const nur_error_t *err, FILE *f) {
  *   nur_error_log_json(&NUR_ERROR_OF(res), stderr);
  */
 NUR_INLINE void nur_error_log_json(const nur_error_t *err, FILE *f) {
-    if (err == NULL || f == NULL) return;
     char buffer[512];
-    size_t len = nur_error_json(err, buffer, sizeof(buffer));
-    if (len < sizeof(buffer)) {
-        fputs(buffer, f);
-    } else {
-        fputs(buffer, f);
-    }
+    size_t len;
+    if (err == NULL || f == NULL) return;
+    len = nur_error_json(err, buffer, sizeof(buffer));
+    (void)len;
+    fputs(buffer, f);
     fputc('\n', f);
     fflush(f);
 }
@@ -2270,19 +2420,21 @@ NUR_INLINE NurResult_i32 nur_div_i32(int32_t a, int32_t b) {
  */
 NUR_NODISCARD
 NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t buf_size) {
+    FILE *f;
+    size_t read_bytes;
     if (!path || !buf || buf_size == 0) {
         return nur_err_cstr(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0,
             "Invalid argument passed to nur_file_read_text", NULL,
             NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
     }
-    FILE *f = fopen(path, "rb");
+    f = fopen(path, "rb");
     if (!f) {
         return nur_err_cstr(nur_internal_make_error(
             nur_error_code_from_errno(errno), errno,
             "Failed to open file", path,
             NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE));
     }
-    size_t read_bytes = fread(buf, 1, buf_size - 1, f);
+    read_bytes = fread(buf, 1, buf_size - 1, f);
     if (ferror(f)) {
         fclose(f);
         return nur_err_cstr(nur_internal_make_error(
@@ -2309,10 +2461,12 @@ NUR_INLINE NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t
         extern void _nur_shield_banned_gets(void) __attribute__((error("[nur.h Security Shield] 'gets()' is inherently unsafe and banned! Use 'fgets()' instead."))); \
         _nur_shield_banned_gets(); \
     } while(0)
+    #if defined(NUR_C99) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
     #define prinf(...) do { \
         extern void _nur_shield_typo_prinf(void) __attribute__((error("[nur.h Typo Guard] Typo detected: 'prinf'. Did you mean 'printf'?"))); \
         _nur_shield_typo_prinf(); \
     } while(0)
+    #endif
 #endif
 
 #ifdef NUR_STRICT_POISON

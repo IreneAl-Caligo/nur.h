@@ -8,6 +8,7 @@ CFLAGS_DEBUG := $(CFLAGS_BASE) -g -O0 -DDEBUG
 CFLAGS_RELEASE := $(CFLAGS_BASE) -O2 -DNDEBUG
 
 # C Standard variants
+CFLAGS_C89 := $(CFLAGS_DEBUG) -std=c89
 CFLAGS_C99 := $(CFLAGS_DEBUG) -std=c99
 CFLAGS_C11 := $(CFLAGS_DEBUG) -std=c11  
 CFLAGS_C17 := $(CFLAGS_DEBUG) -std=c17
@@ -24,6 +25,7 @@ endif
 
 # Test executables
 TEST_BINARY := test_nur$(EXE)
+TEST_BINARY_C89 := test_c89_and_purist$(EXE)
 TEST_BINARY_C99 := test_nur_c99$(EXE)
 TEST_BINARY_C11 := test_nur_c11$(EXE)
 TEST_BINARY_C17 := test_nur_c17$(EXE)
@@ -41,7 +43,12 @@ all: test
 
 # Syntax check only (no linking)
 .PHONY: check
-check: check-c99 check-c11 check-c17 check-c23
+check: check-c89 check-c99 check-c11 check-c17 check-c23
+
+.PHONY: check-c89
+check-c89:
+	@echo "Checking C89 compatibility..."
+	$(CC) $(CFLAGS_C89) -fsyntax-only $(HEADER)
 
 .PHONY: check-c99
 check-c99:
@@ -106,7 +113,19 @@ test-all-features: $(HEADER)
 
 # Run tests for all C standards
 .PHONY: test-all
-test-all: test-c99 test-c11 test-c17 test-c23
+test-all: test-c89 test-c99 test-c11 test-c17 test-c23
+
+.PHONY: test-c89
+test-c89: $(HEADER)
+	@echo "Running C89 tests..."
+	$(CC) $(CFLAGS_C89) -o $(TEST_BINARY_C89) TEST/test_c89_and_purist.c
+	$(RUN_PREFIX)$(TEST_BINARY_C89)
+
+.PHONY: test-purist
+test-purist: $(HEADER)
+	@echo "Running C-Purist pure-function tests..."
+	$(CC) $(CFLAGS_C11) -o $(TEST_BINARY_C89) TEST/test_c89_and_purist.c
+	$(RUN_PREFIX)$(TEST_BINARY_C89)
 
 .PHONY: test-c99
 test-c99: $(TEST_BINARY_C99)

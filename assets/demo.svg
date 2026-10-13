@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1117" />
+      <stop offset="100%" stop-color="#161b22" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <style>
+    @keyframes typing-cmd1 {
+      0%, 100% { opacity: 0; }
+      4%, 26% { opacity: 1; }
+      28% { opacity: 1; }
+    }
+    @keyframes typing-code {
+      0%, 100% { opacity: 0; }
+      10%, 98% { opacity: 1; }
+    }
+    @keyframes typing-cmd2 {
+      0%, 26% { opacity: 0; }
+      30%, 98% { opacity: 1; }
+    }
+    @keyframes compile-output {
+      0%, 46% { opacity: 0; }
+      48%, 98% { opacity: 1; }
+    }
+    @keyframes typing-cmd3 {
+      0%, 54% { opacity: 0; }
+      58%, 98% { opacity: 1; }
+    }
+    @keyframes exec-output {
+      0%, 68% { opacity: 0; }
+      70%, 98% { opacity: 1; }
+    }
+    @keyframes cursor-blink {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    .term-text {
+      font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+      font-size: 13.5px;
+      line-height: 22px;
+    }
+    .prompt { fill: #58a6ff; font-weight: bold; }
+    .cmd { fill: #f0f6fc; }
+    .flag { fill: #79c0ff; }
+    .keyword { fill: #ff7b72; font-weight: bold; }
+    .type { fill: #ffa657; }
+    .func { fill: #d2a8ff; }
+    .str { fill: #a5d6ff; }
+    .comment { fill: #8b949e; font-style: italic; }
+    .success { fill: #3fb950; font-weight: bold; }
+    .badge-ok { fill: #238636; }
+    .badge-err { fill: #da3633; }
+    .metric { fill: #e3b341; font-weight: bold; }
+    .cursor { fill: #58a6ff; animation: cursor-blink 0.8s infinite; }
+
+    .anim-cmd1 { animation: typing-cmd1 6s infinite; }
+    .anim-code { animation: typing-code 6s infinite; }
+    .anim-cmd2 { animation: typing-cmd2 6s infinite; }
+    .anim-compile { animation: compile-output 6s infinite; }
+    .anim-cmd3 { animation: typing-cmd3 6s infinite; }
+    .anim-exec { animation: exec-output 6s infinite; }
+  </style>
+
+  <!-- Terminal Window Container -->
+  <rect x="20" y="16" width="840" height="408" rx="12" fill="url(#bg-grad)" stroke="#30363d" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Title Bar -->
+  <path d="M 20 28 Q 20 16 32 16 L 848 16 Q 860 16 860 28 L 860 52 L 20 52 Z" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <line x1="20" y1="52" x2="860" y2="52" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Traffic Lights -->
+  <circle cx="44" cy="34" r="6" fill="#ff5f56" stroke="#e0443e" stroke-width="0.5"/>
+  <circle cx="64" cy="34" r="6" fill="#ffbd2e" stroke="#dea123" stroke-width="0.5"/>
+  <circle cx="84" cy="34" r="6" fill="#27c93f" stroke="#1aab29" stroke-width="0.5"/>
+
+  <!-- Window Title -->
+  <text x="440" y="38" text-anchor="middle" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="500">
+    bash — nur.h 5-Second Interactive Demonstration (v1.3.0)
+  </text>
+
+  <!-- Terminal Content Area -->
+  <g class="term-text" transform="translate(45, 80)">
+
+    <!-- Step 1: Preview code -->
+    <g class="anim-code">
+      <text x="0" y="0">
+        <tspan class="prompt">❯ </tspan>
+        <tspan class="cmd">cat demo.c</tspan>
+      </text>
+      <text x="0" y="24">
+        <tspan class="keyword">#include </tspan><tspan class="str">"nur.h"</tspan>
+        <tspan class="comment">  /* ISO C89/C99/C11/C23 &amp; C++11 Single Header */</tspan>
+      </text>
+      <text x="0" y="46">
+        <tspan class="type">NurResult_i32</tspan> <tspan class="func">res</tspan> = <tspan class="func">safe_divide</tspan>(100, 2);
+      </text>
+      <text x="0" y="68">
+        <tspan class="keyword">if </tspan>(<tspan class="func">NUR_IS_OK</tspan>(res)) <tspan class="func">printf</tspan>(<tspan class="str">"Value: %d\n"</tspan>, <tspan class="func">NUR_VALUE</tspan>(res));
+      </text>
+    </g>
+
+    <!-- Step 2: Compile Command with pedantic flags -->
+    <g class="anim-cmd2" transform="translate(0, 102)">
+      <text x="0" y="0">
+        <tspan class="prompt">❯ </tspan>
+        <tspan class="cmd">gcc -std=c89 -Wall -Wextra -Wpedantic demo.c -Iinclude -o demo</tspan>
+      </text>
+    </g>
+
+    <!-- Compilation Output (Zero Warnings) -->
+    <g class="anim-compile" transform="translate(0, 126)">
+      <text x="0" y="0">
+        <tspan class="success">✓ Verified Clean:</tspan>
+        <tspan fill="#8b949e"> 0 warnings, 0 errors across C89, C99, C11, C17, C23</tspan>
+      </text>
+    </g>
+
+    <!-- Step 3: Run Command -->
+    <g class="anim-cmd3" transform="translate(0, 160)">
+      <text x="0" y="0">
+        <tspan class="prompt">❯ </tspan>
+        <tspan class="cmd">./demo</tspan>
+      </text>
+    </g>
+
+    <!-- Execution Output -->
+    <g class="anim-exec" transform="translate(0, 186)">
+      <!-- Box row 1 -->
+      <rect x="0" y="-14" width="70" height="20" rx="4" fill="#238636" opacity="0.9"/>
+      <text x="35" y="0" text-anchor="middle" fill="#ffffff" font-weight="bold" font-size="11.5">SUCCESS</text>
+      <text x="82" y="0" fill="#f0f6fc">
+        Value: <tspan class="metric">50</tspan>
+        <tspan fill="#8b949e">  │  Latency: </tspan><tspan class="metric">&lt;0.40 ns</tspan>
+        <tspan fill="#8b949e">  │  Heap Allocated: </tspan><tspan class="metric">0 bytes</tspan>
+      </text>
+
+      <!-- Box row 2 -->
+      <rect x="0" y="14" width="70" height="20" rx="4" fill="#1f6feb" opacity="0.9"/>
+      <text x="35" y="28" text-anchor="middle" fill="#ffffff" font-weight="bold" font-size="11.5">PURIST</text>
+      <text x="82" y="28" fill="#f0f6fc">
+        <tspan fill="#7ee787">NUR_PURIST</tspan> mode: <tspan fill="#8b949e">100% macro-free pure functions &amp; zero hidden returns</tspan>
+      </text>
+
+      <!-- Box row 3 -->
+      <rect x="0" y="42" width="70" height="20" rx="4" fill="#8957e5" opacity="0.9"/>
+      <text x="35" y="56" text-anchor="middle" fill="#ffffff" font-weight="bold" font-size="11.5">SAFETY</text>
+      <text x="82" y="56" fill="#f0f6fc">
+        <tspan fill="#d2a8ff">[[nodiscard]]</tspan> active: <tspan fill="#8b949e">Unhandled error results rejected at compile-time</tspan>
+      </text>
+
+      <!-- Prompt Ready -->
+      <text x="0" y="96">
+        <tspan class="prompt">❯ </tspan>
+        <rect x="18" y="84" width="8" height="15" class="cursor"/>
+      </text>
+    </g>
+
+  </g>
+</svg>
