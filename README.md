@@ -10,8 +10,8 @@ A **single-header, zero-allocation, pedantic warning-free** C library that bring
 [![Clang-Format](https://img.shields.io/badge/Clang--Format-Enforced-blue.svg)](.clang-format)
 [![ABI Freeze](https://img.shields.io/badge/ABI-Frozen%20v1.4.0-brightgreen.svg)](docs/ABI_SPECIFICATION.md)
 [![Zero Heap Allocation](https://img.shields.io/badge/Memory-0%20Bytes%20Heap-brightgreen.svg)](docs/BENCHMARKS.md)
-[![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.github/workflows/ci.yml)
-[![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.github/workflows/ci.yml)
+[![Sanitizers](https://img.shields.io/badge/Sanitizers-ASan%20%7C%20UBSan%20Clean-success.svg)](.ci/ci.yml)
+[![CI Matrix](https://img.shields.io/badge/CI-Passing%20(All%20Standards)-brightgreen.svg)](.ci/ci.yml)
 [![AI / LLM Ready](https://img.shields.io/badge/AI%20DX-LLM%20Safe%20Contract-purple.svg)](AI_POLICY.md)
 
 <div align="center">
