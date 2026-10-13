@@ -4,6 +4,51 @@ Comprehensive, auto-generated API documentation for `nur.h` (Author: Irene Al-Ca
 
 ## Macros & Propagation
 
+### `INT32_MAX`
+
+```c
+#define INT32_MAX 2147483647L
+```
+
+---
+
+### `INT32_MIN`
+
+```c
+#define INT32_MIN (-2147483647L - 1L)
+```
+
+---
+
+### `NUR_AND_THEN`
+
+```c
+#define NUR_AND_THEN(result, func)
+```
+
+Chain a result-returning function on a successful result.
+
+NUR_AND_THEN(result, func) evaluates result once. If Ok, calls func with
+the payload and returns its NurResult. If Err, passes the error through.
+
+func must have signature: NurResult_<same_suffix> func(<value_type>).
+
+GNU extension: uses statement expressions for single-evaluation.
+
+Usage:
+NurResult_i32 parse_uid(int raw);  // some transform
+NurResult_i32 r2 = NUR_AND_THEN(r, parse_uid);
+
+---
+
+### `NUR_AND_THEN`
+
+```c
+#define NUR_AND_THEN(result, func)
+```
+
+---
+
 ### `NUR_ASSERT_ERR`
 
 ```c
@@ -20,8 +65,6 @@ Asserts that result is Err with expected error code.
 #define NUR_ASSERT_OK(r)
 ```
 
-Asserts that result is Ok. Aborts with diagnostic if error.
-
 ---
 
 ### `NUR_AUTO`
@@ -43,7 +86,65 @@ Asserts that result is Ok. Aborts with diagnostic if error.
 ### `NUR_AUTO`
 
 ```c
-#define NUR_AUTO __auto_type
+#define NUR_AUTO __extension__ __auto_type
+```
+
+---
+
+### `NUR_AUTO_FILE`
+
+```c
+#define NUR_AUTO_FILE __attribute__((cleanup(nur_internal_cleanup_fclose)))
+```
+
+Automatically closes FILE stream when pointer leaves scope.
+
+Usage:
+NUR_AUTO_FILE FILE *f = fopen("cfg.json", "r");
+
+---
+
+### `NUR_AUTO_FILE`
+
+```c
+#define NUR_AUTO_FILE
+```
+
+---
+
+### `NUR_AUTO_FILE`
+
+```c
+#define NUR_AUTO_FILE
+```
+
+---
+
+### `NUR_AUTO_FREE`
+
+```c
+#define NUR_AUTO_FREE __attribute__((cleanup(nur_internal_cleanup_free)))
+```
+
+Automatically frees heap memory when pointer leaves scope.
+
+Usage:
+NUR_AUTO_FREE char *buf = malloc(1024);
+
+---
+
+### `NUR_AUTO_FREE`
+
+```c
+#define NUR_AUTO_FREE
+```
+
+---
+
+### `NUR_AUTO_FREE`
+
+```c
+#define NUR_AUTO_FREE
 ```
 
 ---
@@ -92,6 +193,14 @@ Asserts that result is Ok. Aborts with diagnostic if error.
 
 ```c
 #define NUR_C23 1
+```
+
+---
+
+### `NUR_C89`
+
+```c
+#define NUR_C89 1
 ```
 
 ---
@@ -149,6 +258,56 @@ NUR_CHECK_AS(i32, size > 0, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "size must be posi
 
 ---
 
+### `NUR_CHECK_AS_MSG`
+
+```c
+#define NUR_CHECK_AS_MSG(DestSuffix, cond, code, msg)
+```
+
+Like NUR_CHECK_AS but with an explicit message (typed return).
+Returns typed NurResult error if condition is false.
+
+Usage:
+NUR_CHECK_AS_MSG(i32, size > 0, NUR_E_INVALID_ARGUMENT, "size must be positive");
+
+---
+
+### `NUR_CHECK_MSG`
+
+```c
+#define NUR_CHECK_MSG(cond, code, msg)
+```
+
+Like NUR_CHECK but with an explicit message argument for more context.
+Returns NurResult_void error if condition is false.
+
+Usage:
+NUR_CHECK_MSG(port > 0 && port < 65536, NUR_E_OUT_OF_RANGE, "port must be 1-65535");
+
+---
+
+### `NUR_CLEANUP`
+
+```c
+#define NUR_CLEANUP(func) __attribute__((cleanup(func)))
+```
+
+Attach automatic cleanup function to a variable when it leaves scope.
+Supported on GCC and Clang. On MSVC/standard C, use NUR_TRY_GOTO.
+
+Usage:
+NUR_CLEANUP(free_buf) char *buf = malloc(64);
+
+---
+
+### `NUR_CLEANUP`
+
+```c
+#define NUR_CLEANUP(func)
+```
+
+---
+
 ### `NUR_COLD`
 
 ```c
@@ -161,6 +320,22 @@ NUR_CHECK_AS(i32, size > 0, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "size must be posi
 
 ```c
 #define NUR_COLD
+```
+
+---
+
+### `NUR_CUSTOM_PANIC_HANDLER_STORAGE`
+
+```c
+#define NUR_CUSTOM_PANIC_HANDLER_STORAGE __declspec(selectany)
+```
+
+---
+
+### `NUR_CUSTOM_PANIC_HANDLER_STORAGE`
+
+```c
+#define NUR_CUSTOM_PANIC_HANDLER_STORAGE __attribute__((weak))
 ```
 
 ---
@@ -181,10 +356,76 @@ NUR_CHECK_AS(i32, size > 0, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "size must be posi
 
 ---
 
+### `NUR_ERROR_CAUSED_BY`
+
+```c
+#define NUR_ERROR_CAUSED_BY(err_val, new_ctx, cause_val)
+```
+
+Wrap an error with both context and root cause.
+
+---
+
+### `NUR_ERROR_CONTEXT_AT`
+
+```c
+#define NUR_ERROR_CONTEXT_AT(err, idx) nur_error_context_at(&(err), (size_t)(idx))
+```
+
+---
+
+### `NUR_ERROR_CONTEXT_AT`
+
+```c
+#define NUR_ERROR_CONTEXT_AT(err, idx) nur_error_context_at(&(err), (size_t)(idx))
+```
+
+---
+
+### `NUR_ERROR_COPY`
+
+```c
+#define NUR_ERROR_COPY(code, dynamic_str)
+```
+
+---
+
 ### `NUR_ERROR_ERRNO`
 
 ```c
 #define NUR_ERROR_ERRNO(msg)
+```
+
+---
+
+### `NUR_ERROR_FMT`
+
+```c
+#define NUR_ERROR_FMT(code, fmt, ...)
+```
+
+---
+
+### `NUR_ERROR_INLINE_MSG_SIZE`
+
+```c
+#define NUR_ERROR_INLINE_MSG_SIZE 64
+```
+
+---
+
+### `NUR_ERROR_IS`
+
+```c
+#define NUR_ERROR_IS(err, errcode_) ((err).code == (errcode_))
+```
+
+---
+
+### `NUR_ERROR_MSG`
+
+```c
+#define NUR_ERROR_MSG(err) nur_error_message_of(&(err))
 ```
 
 ---
@@ -194,6 +435,25 @@ NUR_CHECK_AS(i32, size > 0, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "size must be posi
 ```c
 #define NUR_ERROR_OF(r) ((r).u.error)
 ```
+
+---
+
+### `NUR_ERROR_WRAP`
+
+```c
+#define NUR_ERROR_WRAP(err_val, new_ctx) NUR_WRAP_ERROR((err_val), (new_ctx))
+```
+
+Convenience alias: wrap an existing error with a new context string,
+creating a new nur_error_t that preserves original code, sys, message,
+file, func, line but replaces .context.
+
+This is an ergonomic alias for NUR_WRAP_ERROR (which preserves original
+source location). Use for adding caller context without losing the origin.
+
+Usage:
+nur_error_t wrapped = NUR_ERROR_WRAP(NUR_ERROR_OF(r), "while parsing config");
+return NUR_ERR(i32, wrapped);
 
 ---
 
@@ -213,6 +473,14 @@ NUR_CHECK_AS(i32, size > 0, NUR_ERROR(NUR_E_INVALID_ARGUMENT, "size must be posi
 
 ---
 
+### `NUR_EXPECT_VOID`
+
+```c
+#define NUR_EXPECT_VOID(r, msg) nur_expect_void_internal((r), (msg), NUR_LOC_FILE, NUR_LOC_LINE)
+```
+
+---
+
 ### `NUR_E_PERMISSION_DENIED`
 
 ```c
@@ -223,10 +491,26 @@ Backward-compatibility and POSIX taxonomy alias
 
 ---
 
+### `NUR_FN`
+
+```c
+#define NUR_FN(ReturnType, FuncName, ...) NUR_NODISCARD ReturnType FuncName(__VA_ARGS__)
+```
+
+---
+
 ### `NUR_GNU_EXTENSIONS`
 
 ```c
 #define NUR_GNU_EXTENSIONS 1
+```
+
+---
+
+### `NUR_H_INCLUDED`
+
+```c
+#define NUR_H_INCLUDED
 ```
 
 ---
@@ -273,6 +557,30 @@ Usage: NUR_IGNORE(write_log(msg));
 ### `NUR_INLINE`
 
 ```c
+#define NUR_INLINE static __inline__
+```
+
+---
+
+### `NUR_INLINE`
+
+```c
+#define NUR_INLINE static __inline
+```
+
+---
+
+### `NUR_INLINE`
+
+```c
+#define NUR_INLINE static
+```
+
+---
+
+### `NUR_INLINE`
+
+```c
 #define NUR_INLINE static inline
 ```
 
@@ -281,7 +589,7 @@ Usage: NUR_IGNORE(write_log(msg));
 ### `NUR_INLINE`
 
 ```c
-#define NUR_INLINE static __forceinline
+#define NUR_INLINE static __inline
 ```
 
 ---
@@ -344,13 +652,58 @@ Status checking
 
 ---
 
+### `NUR_MAP`
+
+```c
+#define NUR_MAP(result, func)
+```
+
+Map a successful Result value using func, preserving error.
+
+Evaluates result once. If Ok, applies func to the payload and returns
+a new Ok with the result. If Err, propagates the existing error.
+
+NOTE: NUR_MAP is restricted to same-type transformations (T -> T).
+For mapping between different types (T -> U), use NUR_MAP_TO(target_suffix, result, func).
+
+func signature: <value_type> func(<value_type>)
+
+Usage:
+static int double_it(int x) { return x * 2; }
+NurResult_i32 r2 = NUR_MAP(r, double_it);
+
+---
+
+### `NUR_MAP_TO`
+
+```c
+#define NUR_MAP_TO(suffix, result, func)
+```
+
+Typed map converting Ok value into target type 'suffix'.
+On error, constructs a result of target type 'suffix' with the original error.
+
+---
+
+### `NUR_MAP_TO`
+
+```c
+#define NUR_MAP_TO(suffix, result, func)
+```
+
+NUR_MAP_TO - Portable typed map for non-GNU and ANSI C compilers.
+Maps Ok value using 'func' into a new Ok result of target type 'suffix'.
+On error, constructs a result of target type 'suffix' with the original error.
+
+---
+
 ### `NUR_MATCH`
 
 ```c
 #define NUR_MATCH(r, val_var, ok_body, err_var, err_body)
 ```
 
-Type-inferring pattern match construct (GNU/C23).
+Type-inferring pattern match construct (GNU/C23/C++).
 
 Usage:
 NUR_MATCH(res, val, { printf("Val: %d\n", val); }, err, { nur_error_eprint(&err); });
@@ -370,6 +723,14 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 
 ---
 
+### `NUR_MAX_CONTEXT_DEPTH`
+
+```c
+#define NUR_MAX_CONTEXT_DEPTH 4
+```
+
+---
+
 ### `NUR_MSVC`
 
 ```c
@@ -382,6 +743,38 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 
 ```c
 #define NUR_NODISCARD [[nodiscard]]
+```
+
+---
+
+### `NUR_NODISCARD`
+
+```c
+#define NUR_NODISCARD [[nodiscard]]
+```
+
+---
+
+### `NUR_NODISCARD`
+
+```c
+#define NUR_NODISCARD
+```
+
+---
+
+### `NUR_NODISCARD`
+
+```c
+#define NUR_NODISCARD [[nodiscard]]
+```
+
+---
+
+### `NUR_NODISCARD`
+
+```c
+#define NUR_NODISCARD __attribute__((warn_unused_result))
 ```
 
 ---
@@ -421,6 +814,38 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 ### `NUR_NODISCARD_MSG`
 
 ```c
+#define NUR_NODISCARD_MSG(msg) [[nodiscard(msg)]]
+```
+
+---
+
+### `NUR_NODISCARD_MSG`
+
+```c
+#define NUR_NODISCARD_MSG(msg)
+```
+
+---
+
+### `NUR_NODISCARD_MSG`
+
+```c
+#define NUR_NODISCARD_MSG(msg) [[nodiscard]]
+```
+
+---
+
+### `NUR_NODISCARD_MSG`
+
+```c
+#define NUR_NODISCARD_MSG(msg) __attribute__((warn_unused_result))
+```
+
+---
+
+### `NUR_NODISCARD_MSG`
+
+```c
 #define NUR_NODISCARD_MSG(msg) __attribute__((warn_unused_result))
 ```
 
@@ -453,7 +878,31 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 ### `NUR_NODISCARD_TYPE`
 
 ```c
+#define NUR_NODISCARD_TYPE [[nodiscard]]
+```
+
+---
+
+### `NUR_NODISCARD_TYPE`
+
+```c
 #define NUR_NODISCARD_TYPE
+```
+
+---
+
+### `NUR_NODISCARD_TYPE`
+
+```c
+#define NUR_NODISCARD_TYPE [[nodiscard]]
+```
+
+---
+
+### `NUR_NODISCARD_TYPE`
+
+```c
+#define NUR_NODISCARD_TYPE __attribute__((warn_unused_result))
 ```
 
 ---
@@ -470,6 +919,38 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 
 ```c
 #define NUR_NODISCARD_TYPE
+```
+
+---
+
+### `NUR_NODISCARD_TYPE`
+
+```c
+#define NUR_NODISCARD_TYPE
+```
+
+---
+
+### `NUR_NOINLINE`
+
+```c
+#define NUR_NOINLINE __attribute__((noinline))
+```
+
+---
+
+### `NUR_NOINLINE`
+
+```c
+#define NUR_NOINLINE __declspec(noinline)
+```
+
+---
+
+### `NUR_NOINLINE`
+
+```c
+#define NUR_NOINLINE
 ```
 
 ---
@@ -538,11 +1019,99 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 
 ---
 
+### `NUR_NO_CTYPE`
+
+```c
+#define NUR_NO_CTYPE 1
+```
+
+---
+
+### `NUR_NO_ERRNO`
+
+```c
+#define NUR_NO_ERRNO 1
+```
+
+---
+
+### `NUR_NO_EXTENSIONS`
+
+```c
+#define NUR_NO_EXTENSIONS 1
+```
+
+---
+
+### `NUR_NO_SECURITY_SHIELD`
+
+```c
+#define NUR_NO_SECURITY_SHIELD 1
+```
+
+---
+
+### `NUR_NO_STDIO`
+
+```c
+#define NUR_NO_STDIO 1
+```
+
+---
+
+### `NUR_NO_STDLIB`
+
+```c
+#define NUR_NO_STDLIB 1
+```
+
+---
+
+### `NUR_NO_STRING`
+
+```c
+#define NUR_NO_STRING 1
+```
+
+---
+
+### `NUR_OK`
+
+```c
+#define NUR_OK(...) NUR_INTERNAL_GET_MACRO_3(__VA_ARGS__, NUR_INTERNAL_OK_2, NUR_INTERNAL_OK_1, nur_internal_unused)(__VA_ARGS__)
+```
+
+---
+
+### `NUR_OK`
+
+```c
+#define NUR_OK(...) NUR_INTERNAL_GET_MACRO_3(__VA_ARGS__, NUR_INTERNAL_OK_2, NUR_INTERNAL_OK_1, nur_internal_unused)(__VA_ARGS__)
+```
+
+---
+
 ### `NUR_OK`
 
 ```c
 #define NUR_OK(suffix, val) nur_ok_##suffix(val)
 ```
+
+C99 legacy 2-argument constructor
+
+---
+
+### `NUR_OK_OR`
+
+```c
+#define NUR_OK_OR(suffix, opt, err)
+```
+
+Convert Option<T> to Result<T, nur_error_t>.
+If opt has value, returns Ok(value); otherwise returns Err(err).
+
+Usage:
+NurResult_i32 res = NUR_OK_OR(i32, opt, NUR_ERROR(NUR_E_NOT_FOUND, "no value"));
 
 ---
 
@@ -550,6 +1119,22 @@ NUR_MATCH_AS(int, res, val, { printf("Val: %d\n", val); }, err, { nur_error_epri
 
 ```c
 #define NUR_OK_VOID() nur_ok_void()
+```
+
+---
+
+### `NUR_OPTION_TRY`
+
+```c
+#define NUR_OPTION_TRY(lhs, expr)
+```
+
+---
+
+### `NUR_OPTION_TRY_TO`
+
+```c
+#define NUR_OPTION_TRY_TO(suffix, lhs, expr)
 ```
 
 ---
@@ -604,6 +1189,30 @@ Semantic alias for NUR_UNWRAP_OR
 
 ---
 
+### `NUR_PANIC_ABORT`
+
+```c
+#define NUR_PANIC_ABORT() abort()
+```
+
+---
+
+### `NUR_PANIC_ABORT`
+
+```c
+#define NUR_PANIC_ABORT() __builtin_trap()
+```
+
+---
+
+### `NUR_PANIC_ABORT`
+
+```c
+#define NUR_PANIC_ABORT() do { volatile int *p_ = 0; (void)*p_; for(;;) {} } while(0)
+```
+
+---
+
 ### `NUR_PRINTF_LIKE`
 
 ```c
@@ -628,13 +1237,21 @@ Semantic alias for NUR_UNWRAP_OR
 
 ---
 
+### `NUR_PURIST_MODE`
+
+```c
+#define NUR_PURIST_MODE 1
+```
+
+---
+
 ### `NUR_REQUIRE_OK`
 
 ```c
 #define NUR_REQUIRE_OK(r)
 ```
 
-Asserts that result is Ok, printing full error details to stderr before aborting.
+Asserts that result is Ok, printing full error details before aborting.
 
 Usage:
 NUR_REQUIRE_OK(res);
@@ -647,7 +1264,7 @@ NUR_REQUIRE_OK(res);
 #define NUR_REQUIRE_OK_MSG(r, msg)
 ```
 
-Asserts that result is Ok with custom failure message, printing full error details before aborting.
+Asserts that result is Ok with custom failure message, printing details before aborting.
 
 Usage:
 NUR_REQUIRE_OK_MSG(res, "Configuration loading failed");
@@ -659,6 +1276,43 @@ NUR_REQUIRE_OK_MSG(res, "Configuration loading failed");
 ```c
 #define NUR_RESULT_TYPE(T, suffix)
 ```
+
+---
+
+### `NUR_RESULT_TYPE_E`
+
+```c
+#define NUR_RESULT_TYPE_E(T, E, suffix)
+```
+
+Generate a Result<T, E> type with arbitrary error type E.
+
+Creates:
+- NurResult_<suffix>        The result type
+- nur_ok_<suffix>(val)      Success constructor
+- nur_err_<suffix>(err)     Failure constructor
+- nur_is_ok_<suffix>(r)     Success predicate
+- nur_is_err_<suffix>(r)    Failure predicate
+- nur_value_<suffix>(r)     Direct value accessor
+- nur_error_<suffix>(r)     Direct error accessor
+- nur_unwrap_or_<suffix>    Value extractor with fallback
+
+---
+
+### `NUR_RETURN_IF_ERR`
+
+```c
+#define NUR_RETURN_IF_ERR(expr)
+```
+
+Return an error result from the enclosing function if expr is Err.
+The enclosing function's return type must be NurResult_void.
+
+This is a portable (no GNU extensions) early-return helper.
+It evaluates expr exactly once via a named temporary.
+
+Usage:
+NUR_RETURN_IF_ERR(validate_input(buf));
 
 ---
 
@@ -678,7 +1332,7 @@ Option constructors
 #define NUR_TRY(expr)
 ```
 
-Statement expression version of NUR_TRY (GNU extension).
+Statement expression version of NUR_TRY (GNU extension / C++).
 Evaluates to the unwrapped value on success.
 Enclosing function must return NurResult_void.
 
@@ -694,7 +1348,7 @@ int value = NUR_TRY(parse_number(str));
 #define NUR_TRY_AS(DestSuffix, expr)
 ```
 
-Propagate into a specific return type (GNU extension).
+Propagate into a specific return type (GNU extension / C++).
 
 Usage:
 int value = NUR_TRY_AS(i32, parse_number(str));
@@ -717,6 +1371,14 @@ int value = NUR_TRY_AS(i32, parse_number(str));
 
 ---
 
+### `NUR_TRY_AUTO`
+
+```c
+#define NUR_TRY_AUTO(DestSuffix, lhs, expr)
+```
+
+---
+
 ### `NUR_TRY_GOTO`
 
 ```c
@@ -728,10 +1390,15 @@ int value = NUR_TRY_AS(i32, parse_number(str));
 ### `NUR_TRY_GOTO`
 
 ```c
-#define NUR_TRY_GOTO(lhs, expr, errvar, label)
+#define NUR_TRY_GOTO(lhs, expr_lval, errvar, label)
 ```
 
-Non-GNU: expr is an lvalue, evaluated once via assignment.
+Non-GNU & C89 portable: user must pre-assign result to a named variable before
+passing to NUR_TRY_GOTO to avoid double-evaluation of expr.
+Example:
+NurResult_i32 _r = parse_int(str);
+NUR_TRY_GOTO(val, _r, err, cleanup);
+This is documented in docs/PORTABILITY.md.
 
 ---
 
@@ -753,6 +1420,14 @@ Like NUR_TRY_TO but for functions returning NurResult_void.
 
 Usage:
 NUR_TRY_VOID(i32, open_file(path));
+
+---
+
+### `NUR_TRY_VOID_AUTO`
+
+```c
+#define NUR_TRY_VOID_AUTO(expr)
+```
 
 ---
 
@@ -815,7 +1490,7 @@ NUR_TRY_VOID(i32, open_file(path));
 ### `NUR_TYPEOF`
 
 ```c
-#define NUR_TYPEOF(expr) __typeof__(expr)
+#define NUR_TYPEOF(expr) __extension__ __typeof__(expr)
 ```
 
 ---
@@ -866,16 +1541,14 @@ NUR_TRY_VOID(i32, open_file(path));
 #define NUR_UNWRAP(r)
 ```
 
-Non-GNU: takes (r).u.error by value (not &(r).u.error), avoiding 'lvalue required'
-on rvalue function calls like NUR_UNWRAP(f()).
-Note: evaluate 'r' to a temporary variable if 'r' has non-trivial side effects.
+Universal single/portable expression fallback supporting all standard and custom Result types
 
 ---
 
-### `NUR_UNWRAP_OR`
+### `NUR_UNWRAP_OPTION`
 
 ```c
-#define NUR_UNWRAP_OR(r, fallback)
+#define NUR_UNWRAP_OPTION(o)
 ```
 
 ---
@@ -886,9 +1559,33 @@ Note: evaluate 'r' to a temporary variable if 'r' has non-trivial side effects.
 #define NUR_UNWRAP_OR(r, fallback)
 ```
 
-Get value or fallback if error.
+Get value or fallback if error (evaluates r exactly once).
 
 Usage: int port = NUR_UNWRAP_OR(parse_port(str), 8080);
+
+---
+
+### `NUR_UNWRAP_OR`
+
+```c
+#define NUR_UNWRAP_OR(r, fallback)
+```
+
+---
+
+### `NUR_UNWRAP_OR`
+
+```c
+#define NUR_UNWRAP_OR(r, fallback)
+```
+
+---
+
+### `NUR_UNWRAP_VOID`
+
+```c
+#define NUR_UNWRAP_VOID(r) nur_unwrap_void_internal((r), NUR_LOC_FILE, NUR_LOC_LINE)
+```
 
 ---
 
@@ -899,6 +1596,16 @@ Usage: int port = NUR_UNWRAP_OR(parse_port(str), 8080);
 ```
 
 Value access - use only after checking status
+
+---
+
+### `NUR_VALUE_OR`
+
+```c
+#define NUR_VALUE_OR(r, fallback) NUR_UNWRAP_OR((r), (fallback))
+```
+
+Portable value-or alias (same semantics, more explicit name)
 
 ---
 
@@ -913,7 +1620,7 @@ Value access - use only after checking status
 ### `NUR_VERSION_MINOR`
 
 ```c
-#define NUR_VERSION_MINOR 1
+#define NUR_VERSION_MINOR 4
 ```
 
 ---
@@ -921,7 +1628,7 @@ Value access - use only after checking status
 ### `NUR_VERSION_NUMBER`
 
 ```c
-#define NUR_VERSION_NUMBER 10100
+#define NUR_VERSION_NUMBER 10400
 ```
 
 ---
@@ -937,7 +1644,7 @@ Value access - use only after checking status
 ### `NUR_VERSION_STRING`
 
 ```c
-#define NUR_VERSION_STRING "1.1.0"
+#define NUR_VERSION_STRING "1.4.0"
 ```
 
 ---
@@ -945,7 +1652,7 @@ Value access - use only after checking status
 ### `NUR_VOID_ERROR_OF`
 
 ```c
-#define NUR_VOID_ERROR_OF(r) ((r).error)
+#define NUR_VOID_ERROR_OF(r) ((r).u.error)
 ```
 
 ---
@@ -968,6 +1675,51 @@ Branch on error for void result and bind error struct into err_var.
 
 ---
 
+### `NUR_WRAP_ERROR`
+
+```c
+#define NUR_WRAP_ERROR(err_val, new_ctx)
+```
+
+---
+
+### `false`
+
+```c
+#define false 0
+```
+
+---
+
+### `gets`
+
+```c
+#define gets(buf) _Static_assert(0, "[nur.h Security Shield] 'gets()' is inherently unsafe and banned due to buffer overflow! Use 'fgets()' instead.")
+```
+
+---
+
+### `gets`
+
+```c
+#define gets(buf)
+```
+
+---
+
+### `nur_error_elog_json`
+
+```c
+#define nur_error_elog_json(err) nur_error_log_json((err), stderr)
+```
+
+Convenience macro: Stream structured JSON error directly to stderr.
+
+Usage:
+nur_error_elog_json(&NUR_ERROR_OF(res));
+
+---
+
 ### `nur_error_eprint`
 
 ```c
@@ -983,12 +1735,172 @@ nur_error_eprint(&NUR_ERROR_OF(result));
 
 ---
 
+### `prinf`
+
+```c
+#define prinf(...) _Static_assert(0, "[nur.h Typo Guard] Typo detected: 'prinf' is not a valid C function. Did you mean 'printf'?")
+```
+
+---
+
+### `prinf`
+
+```c
+#define prinf(...)
+```
+
+---
+
+### `true`
+
+```c
+#define true 1
+```
+
+---
+
 ## Functions & Utilities
+
+### `nur_add_i32`
+
+```c
+NurResult_i32 nur_add_i32(int32_t a, int32_t b)
+```
+
+---
+
+### `nur_cpp_make_result`
+
+```c
+type nur_cpp_make_result(T val)
+```
+
+---
+
+### `nur_div_i32`
+
+```c
+NurResult_i32 nur_div_i32(int32_t a, int32_t b)
+```
+
+---
 
 ### `nur_err_DestSuffix`
 
 ```c
 return nur_err_DestSuffix(error)
+```
+
+---
+
+### `nur_err_cstr`
+
+```c
+return nur_err_cstr(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0, "Invalid argument passed to nur_file_read_text", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_cstr`
+
+```c
+return nur_err_cstr(nur_internal_make_error( nur_error_code_from_errno(errno)
+```
+
+---
+
+### `nur_err_cstr`
+
+```c
+return nur_err_cstr(nur_internal_make_error( NUR_E_IO, errno, "I/O error while reading file", path, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_cstr`
+
+```c
+return nur_err_cstr(nur_internal_make_error( NUR_E_TRUNCATED, 0, "Buffer capacity insufficient: file truncated", path, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_cstr`
+
+```c
+return nur_err_cstr(nur_internal_make_error( NUR_E_IO, errno, "I/O error while reading file", path, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_f64`
+
+```c
+return nur_err_f64(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0, "Square root of negative number is undefined in real domain", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow in 32-bit addition", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow in 32-bit addition", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow/underflow in 32-bit subtraction", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow/underflow in 32-bit subtraction", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow in 32-bit multiplication", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow in 32-bit multiplication", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_INVALID_ARGUMENT, 0, "Division by zero", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
+### `nur_err_i32`
+
+```c
+return nur_err_i32(nur_internal_make_error(NUR_E_OVERFLOW, 0, "Integer overflow in division (INT32_MIN / -1)
 ```
 
 ---
@@ -1025,6 +1937,14 @@ return nur_err_ptr(NUR_ERROR(NUR_E_OUT_OF_MEMORY, "realloc failed")
 
 ---
 
+### `nur_err_usize`
+
+```c
+return nur_err_usize(nur_internal_make_error(NUR_E_NULL_POINTER, 0, "Cannot calculate length of NULL string pointer", NULL, NUR_LOC_FILE, NUR_LOC_FUNC, NUR_LOC_LINE)
+```
+
+---
+
 ### `nur_err_void`
 
 ```c
@@ -1038,7 +1958,7 @@ Create a failed void result with the given error.
 ### `nur_err_void`
 
 ```c
-return nur_err_void(NUR_ERROR_OF(_nur_tmp_)
+return nur_err_void(NUR_ERROR((code)
 ```
 
 ---
@@ -1062,7 +1982,15 @@ return nur_err_void(NUR_ERROR_OF(_nur_tmp_)
 ### `nur_err_void`
 
 ```c
-return nur_err_void(_nur_tmp_.error)
+return nur_err_void(NUR_ERROR_OF(_nur_tmp_)
+```
+
+---
+
+### `nur_err_void`
+
+```c
+return nur_err_void(NUR_ERROR_OF(_nur_tmp_)
 ```
 
 ---
@@ -1118,6 +2046,22 @@ Fixes:
 
 ---
 
+### `nur_error_code_of`
+
+```c
+nur_error_code_t nur_error_code_of(const nur_error_t *err)
+```
+
+---
+
+### `nur_error_copy_msg`
+
+```c
+NUR_INLINE nur_error_t nur_error_copy_msg(nur_error_t e, const char *src_str)
+```
+
+---
+
 ### `nur_error_format`
 
 ```c
@@ -1146,6 +2090,28 @@ Example output:
 
 ---
 
+### `nur_error_log_json`
+
+```c
+void nur_error_log_json(const nur_error_t *err, FILE *f)
+```
+
+Stream structured JSON error directly to a FILE stream (e.g. stdout or file).
+Thread-safe, zero dynamic heap allocation. Appends a newline and flushes.
+
+Usage:
+nur_error_log_json(&NUR_ERROR_OF(res), stderr);
+
+---
+
+### `nur_error_message_of`
+
+```c
+return nur_error_message_of(err)
+```
+
+---
+
 ### `nur_error_print`
 
 ```c
@@ -1162,20 +2128,62 @@ nur_error_print(&NUR_ERROR_OF(result), stderr);
 
 ---
 
+### `nur_error_void_val`
+
+```c
+nur_error_t nur_error_void_val(NurResult_void r_)
+```
+
+---
+
+### `nur_error_with_cause`
+
+```c
+nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, const char *cause_str)
+```
+
+---
+
+### `nur_error_with_cause`
+
+```c
+nur_error_t nur_error_with_cause(nur_error_t e, const char *ctx, const char *cause_str)
+```
+
+---
+
 ### `nur_error_with_context`
 
 ```c
 nur_error_t nur_error_with_context(nur_error_t e, const char *ctx)
 ```
 
-Wrap an existing error with new context, PRESERVING original code, sys,
-message, file, func, line, and backtrace. Only .context is changed.
-This is NOT a full error chain -- the original source location is retained.
+---
 
-Fix: previously called nur_internal_make_error with new source location,
-discarding the original trace. Now uses nur_error_with_context().
+### `nur_error_with_context`
 
-Usage: NUR_WRAP_ERROR(NUR_ERROR_OF(res), "failed to parse config")
+```c
+nur_error_t nur_error_with_context(nur_error_t e, const char *ctx)
+```
+
+---
+
+### `nur_expect_void_internal`
+
+```c
+void nur_expect_void_internal(NurResult_void r_, const char *msg_, const char *file_, unsigned int line_)
+```
+
+Assert that a NurResult_void is successful with custom message, panicking on error.
+Evaluates 'r' exactly once across all C standards.
+
+---
+
+### `nur_file_read_text`
+
+```c
+NurResult_cstr nur_file_read_text(const char *path, char *buf, size_t buf_size)
+```
 
 ---
 
@@ -1189,6 +2197,22 @@ Free wrapper for API symmetry.
 
 Usage:
 nur_free(ptr);
+
+---
+
+### `nur_is_err_void`
+
+```c
+bool nur_is_err_void(NurResult_void r_)
+```
+
+---
+
+### `nur_is_ok_void`
+
+```c
+bool nur_is_ok_void(NurResult_void r_)
+```
 
 ---
 
@@ -1213,6 +2237,190 @@ free(ptr);
 
 ---
 
+### `nur_mul_i32`
+
+```c
+NurResult_i32 nur_mul_i32(int32_t a, int32_t b)
+```
+
+---
+
+### `nur_ok_bool`
+
+```c
+return nur_ok_bool(v)
+```
+
+---
+
+### `nur_ok_cstr`
+
+```c
+return nur_ok_cstr(v)
+```
+
+---
+
+### `nur_ok_cstr`
+
+```c
+return nur_ok_cstr(buf)
+```
+
+---
+
+### `nur_ok_cstr_const`
+
+```c
+return nur_ok_cstr_const(v)
+```
+
+---
+
+### `nur_ok_f32`
+
+```c
+return nur_ok_f32(v)
+```
+
+---
+
+### `nur_ok_f64`
+
+```c
+return nur_ok_f64(v)
+```
+
+---
+
+### `nur_ok_f64`
+
+```c
+return nur_ok_f64(0.0)
+```
+
+---
+
+### `nur_ok_f64`
+
+```c
+return nur_ok_f64(guess)
+```
+
+---
+
+### `nur_ok_i16`
+
+```c
+return nur_ok_i16(v)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(v)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(res)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(a + b)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(res)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(a - b)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(res)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32((int32_t)
+```
+
+---
+
+### `nur_ok_i32`
+
+```c
+return nur_ok_i32(a / b)
+```
+
+---
+
+### `nur_ok_i64`
+
+```c
+return nur_ok_i64(v)
+```
+
+---
+
+### `nur_ok_i64`
+
+```c
+return nur_ok_i64(v)
+```
+
+---
+
+### `nur_ok_i8`
+
+```c
+return nur_ok_i8(v)
+```
+
+---
+
+### `nur_ok_ptr`
+
+```c
+return nur_ok_ptr(v)
+```
+
+---
+
+### `nur_ok_ptr`
+
+```c
+return nur_ok_ptr((void*)
+```
+
+---
+
 ### `nur_ok_ptr`
 
 ```c
@@ -1225,6 +2433,62 @@ return nur_ok_ptr(ptr)
 
 ```c
 return nur_ok_ptr(new_ptr)
+```
+
+---
+
+### `nur_ok_u16`
+
+```c
+return nur_ok_u16(v)
+```
+
+---
+
+### `nur_ok_u64`
+
+```c
+return nur_ok_u64(v)
+```
+
+---
+
+### `nur_ok_u8`
+
+```c
+return nur_ok_u8(v)
+```
+
+---
+
+### `nur_ok_usize`
+
+```c
+return nur_ok_usize(v)
+```
+
+---
+
+### `nur_ok_usize`
+
+```c
+return nur_ok_usize(v)
+```
+
+---
+
+### `nur_ok_usize`
+
+```c
+return nur_ok_usize(v)
+```
+
+---
+
+### `nur_ok_usize`
+
+```c
+return nur_ok_usize(strlen(str)
 ```
 
 ---
@@ -1262,13 +2526,65 @@ void *new_ptr = NUR_VALUE(result);
 
 ---
 
+### `nur_result_is_err`
+
+```c
+bool nur_result_is_err(const void *result_ptr)
+```
+
+---
+
+### `nur_result_is_ok`
+
+```c
+bool nur_result_is_ok(const void *result_ptr)
+```
+
+Universal pointer predicates for pure function checks (100% macro-free).
+Works across all NurResult_<T> types since .ok is at byte offset 0.
+
+---
+
 ### `nur_set_panic_handler`
 
 ```c
 void nur_set_panic_handler(nur_panic_handler_t handler)
 ```
 
-Set custom panic handler. Set NULL to restore default stderr+abort behaviour.
+Set custom panic handler. Synchronized across all translation units.
+Set NULL to restore default stderr+abort behaviour.
+
+---
+
+### `nur_sqrt`
+
+```c
+NurResult_f64 nur_sqrt(double x)
+```
+
+---
+
+### `nur_strlen`
+
+```c
+NurResult_usize nur_strlen(const char *str)
+```
+
+---
+
+### `nur_sub_i32`
+
+```c
+NurResult_i32 nur_sub_i32(int32_t a, int32_t b)
+```
+
+---
+
+### `nur_unwrap_void_internal`
+
+```c
+NUR_INLINE void nur_unwrap_void_internal(NurResult_void r_, const char *file_, unsigned int line_)
+```
 
 ---
 
