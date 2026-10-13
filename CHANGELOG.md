@@ -35,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed `<math.h>` and `<time.h>` Dependencies**: Completely decoupled `src/nur.h` from standard math and time libraries; implemented Newton-Raphson approximation in `nur_sqrt`.
 - Version synchronized to 1.4.0 across `VERSION`, `CMakeLists.txt`, `meson.build`, `nur.pc`, `vcpkg.json`, and `conanfile.py`.
 
+### Fixed
+- **Multi-Compiler & Platform Build Portability**:
+  - Resolved MSVC warning C4714 (function marked forceinline not inlined) and C4702 (unreachable code) under `/W4 /WX`.
+  - Added portable lvalue hygiene pattern for `NUR_UNWRAP` and `NUR_UNWRAP_OR` on non-GNU/MSVC compilers.
+  - Resolved Clang `-Wgnu-auto-type` and `-Wnewline-eof` under `-Wpedantic -Werror`.
+  - Resolved all static analyzer diagnostics in test suites (safe `strtol` conversion, file I/O return validation, and type-safe `size_t` serialization).
+
+
 ## [1.3.2] - 2026-10-13
 
 ### Added
