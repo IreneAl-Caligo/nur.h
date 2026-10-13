@@ -1556,26 +1556,16 @@ NUR_INLINE size_t nur_error_json(const nur_error_t *error, char *buffer, size_t 
     unsigned char i_;
 #endif
     const char *p;
-    if (!error) {
-        if (buffer && capacity > 0) {
-            static const char null_json[] = "{\"ok\":true}";
-            size_t len = sizeof(null_json) - 1;
-            size_t copy_len = (capacity > len) ? len : (capacity - 1);
-            if (copy_len > 0) {
-                size_t k;
-                /* cppcheck-suppress unsignedLessThanZero */
-                for (k = 0; k < copy_len; ++k) {
-                    buffer[k] = null_json[k];
-                }
-            }
-            buffer[copy_len] = '\0';
-            return len;
-        }
-        return 11;
-    }
     sink.buffer = buffer;
     sink.capacity = capacity;
     sink.length = 0;
+    if (!error) {
+        nur_internal_sink_puts(&sink, "{\"ok\":true}");
+        if (buffer && capacity > 0) {
+            buffer[sink.length < capacity ? sink.length : capacity - 1] = '\0';
+        }
+        return sink.length;
+    }
     nur_internal_sink_puts(&sink, "{\"ok\":false,\"code\":");
     nur_internal_sink_putu(&sink, (nur_internal_uintmax_t)error->code);
     nur_internal_sink_puts(&sink, ",\"name\":\"");
